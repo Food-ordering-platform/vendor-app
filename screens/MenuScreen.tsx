@@ -1,15 +1,37 @@
-// screens/MenuScreen.tsx
-import React from 'react';
-import { 
-  View, Text, FlatList,  TouchableOpacity, StyleSheet, SafeAreaView, Platform 
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING, SHADOWS } from '../constants/theme';
+import React from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS, SPACING } from "../constants/theme";
+import Header from "../components/HeaderTemp"; // Import Header
 
 const MENU_ITEMS = [
-  { id: '1', name: 'Jollof Rice', category: 'Rice', price: 2500, available: true },
-  { id: '2', name: 'Fried Rice', category: 'Rice', price: 2500, available: true },
-  { id: '3', name: 'Grilled Turkey', category: 'Proteins', price: 3000, available: false },
+  {
+    id: "1",
+    name: "Jollof Rice",
+    category: "Rice",
+    price: 2500,
+    available: true,
+  },
+  {
+    id: "2",
+    name: "Fried Rice",
+    category: "Rice",
+    price: 2500,
+    available: true,
+  },
+  {
+    id: "3",
+    name: "Grilled Turkey",
+    category: "Proteins",
+    price: 3000,
+    available: false,
+  },
 ];
 
 export default function MenuScreen({ navigation }: any) {
@@ -24,9 +46,19 @@ export default function MenuScreen({ navigation }: any) {
         <Text style={styles.itemPrice}>₦{item.price.toLocaleString()}</Text>
       </View>
       <View style={styles.statusContainer}>
-        <View style={[styles.statusBadge, { backgroundColor: item.available ? '#ECFDF5' : '#F3F4F6' }]}>
-          <Text style={[styles.statusText, { color: item.available ? COLORS.success : COLORS.textLight }]}>
-            {item.available ? 'Active' : 'Sold Out'}
+        <View
+          style={[
+            styles.statusBadge,
+            { backgroundColor: item.available ? "#ECFDF5" : "#F3F4F6" },
+          ]}
+        >
+          <Text
+            style={[
+              styles.statusText,
+              { color: item.available ? COLORS.success : COLORS.textLight },
+            ]}
+          >
+            {item.available ? "Active" : "Sold Out"}
           </Text>
         </View>
         <TouchableOpacity style={styles.editBtn}>
@@ -37,44 +69,73 @@ export default function MenuScreen({ navigation }: any) {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>My Menu</Text>
-      </View>
+    <View style={styles.container}>
+      {/* New Header */}
+      <Header title="My Menu" showNotification={false} />
 
-      <FlatList 
+      <FlatList
         data={MENU_ITEMS}
         renderItem={renderItem}
-        keyExtractor={item => item.id}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={{ padding: SPACING.m }}
       />
 
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.fab}
-        onPress={() => navigation.navigate('AddMenuItem')}
+        onPress={() => navigation.navigate("AddMenuItem")}
       >
         <Ionicons name="add" size={30} color="white" />
       </TouchableOpacity>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background, paddingTop: Platform.OS === 'android' ? 30 : 0 },
-  header: { padding: SPACING.l, backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  title: { fontSize: 24, fontWeight: 'bold', color: COLORS.text },
-  
-  itemCard: { flexDirection: 'row', backgroundColor: COLORS.white, padding: SPACING.m, borderRadius: 12, marginBottom: SPACING.s, alignItems: 'center', ...SHADOWS.small },
-  imagePlaceholder: { width: 60, height: 60, borderRadius: 8, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', marginRight: SPACING.m },
+  container: { flex: 1, backgroundColor: COLORS.surface },
+  itemCard: {
+    flexDirection: "row",
+    backgroundColor: COLORS.white,
+    padding: SPACING.m,
+    borderRadius: 12,
+    marginBottom: SPACING.s,
+    alignItems: "center",
+    elevation: 1,
+  },
+  imagePlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: SPACING.m,
+  },
   itemInfo: { flex: 1 },
-  itemName: { fontSize: 16, fontWeight: '700', color: COLORS.text },
+  itemName: { fontSize: 16, fontWeight: "700", color: COLORS.text },
   itemCategory: { fontSize: 12, color: COLORS.textLight, marginTop: 2 },
-  itemPrice: { fontSize: 14, fontWeight: '600', color: COLORS.primary, marginTop: 4 },
-  
-  statusContainer: { alignItems: 'flex-end', gap: 8 },
+  itemPrice: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.primary,
+    marginTop: 4,
+  },
+  statusContainer: { alignItems: "flex-end", gap: 8 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  statusText: { fontSize: 10, fontWeight: '700' },
+  statusText: { fontSize: 10, fontWeight: "700" },
   editBtn: { padding: 4 },
-  
-  fab: { position: 'absolute', bottom: 30, right: 20, width: 60, height: 60, borderRadius: 30, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', ...SHADOWS.medium }
+  fab: {
+    position: "absolute",
+    bottom: 30,
+    right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 2 },
+  },
 });

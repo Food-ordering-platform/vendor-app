@@ -1,31 +1,41 @@
 import React, { useState } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, 
-  Image, Alert, ActivityIndicator, Platform, SafeAreaView 
+  Image, Alert, ActivityIndicator, Switch 
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING, SHADOWS } from '../constants/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../context/themeContext'; // Ensure you created this from the previous step
+import { SPACING, SHADOWS } from '../constants/theme';
 
-export default function ProfileScreen() {
-  // Mock initial data (Replace with API data later)
-  const [name, setName] = useState("Mama's Kitchen");
-  const [address, setAddress] = useState("123 Main Street, Warri");
-  const [phone, setPhone] = useState("08012345678");
-  const [prepTime, setPrepTime] = useState("25"); // mins
-  const [image, setImage] = useState<string | null>("https://res.cloudinary.com/dnq5zkskt/image/upload/v1758018670/Aj_takeaway_le3f7d.webp");
+export default function ProfileScreen({ route, navigation }: any) {
+  const insets = useSafeAreaInsets();
+  const { colors, isDark, setMode } = useTheme(); // Use the theme hook
+  
+  // Check if we are in "Onboarding Mode" (coming from Signup)
+  const isOnboarding = route?.params?.isOnboarding || false;
+
+  // Form State
+  const [name, setName] = useState(isOnboarding ? "" : "Mama's Kitchen");
+  const [address, setAddress] = useState(isOnboarding ? "" : "123 Main Street, Warri");
+  const [phone, setPhone] = useState(isOnboarding ? "" : "08012345678");
+  const [prepTime, setPrepTime] = useState(isOnboarding ? "30" : "25"); 
+  const [image, setImage] = useState<string | null>(
+    isOnboarding ? null : "https://res.cloudinary.com/dnq5zkskt/image/upload/v1758018670/Aj_takeaway_le3f7d.webp"
+  );
   
   const [loading, setLoading] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(isOnboarding); 
 
   // --- Image Picker Logic ---
   const pickImage = async () => {
-    if (!isEditing) return; // Only allow change in Edit mode
+    if (!isEditing) return; 
 
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [16, 9], // Wide aspect ratio for restaurant headers
+      aspect: [16, 9],
       quality: 1,
     });
 
@@ -36,24 +46,48 @@ export default function ProfileScreen() {
 
   // --- Save Logic ---
   const handleSave = () => {
+    // Basic Validation
+    if (!name || !address || !phone || !prepTime) {
+      Alert.alert("Missing Info", "Please fill in all details.");
+      return;
+    }
+    
     setLoading(true);
+    
     // Simulate API Call
     setTimeout(() => {
       setLoading(false);
-      setIsEditing(false);
-      Alert.alert("Success", "Restaurant Profile Updated!");
+      
+      if (isOnboarding) {
+        // If onboarding, replace the entire stack with the Dashboard
+        navigation.replace('Main'); 
+      } else {
+        setIsEditing(false);
+        Alert.alert("Success", "Restaurant Profile Updated!");
+      }
     }, 1500);
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Restaurant Profile</Text>
-        <TouchableOpacity onPress={() => isEditing ? handleSave() : setIsEditing(true)}>
-          <Text style={[styles.editBtn, isEditing && { color: COLORS.success }]}>
-            {isEditing ? "Save" : "Edit"}
-          </Text>
-        </TouchableOpacity>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      
+      {/* --- CUSTOM HEADER --- */}
+      <View style={[styles.header, { 
+        paddingTop: insets.top + 10, 
+        backgroundColor: colors.surface,
+        borderBottomColor: colors.border
+      }]}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          {isOnboarding ? "Setup Restaurant" : "Restaurant Profile"}
+        </Text>
+        
+        {!isOnboarding && (
+          <TouchableOpacity onPress={() => isEditing ? handleSave() : setIsEditing(true)}>
+            <Text style={[styles.editBtn, { color: isEditing ? colors.success : colors.primary }]}>
+              {isEditing ? "Save" : "Edit"}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
@@ -64,145 +98,212 @@ export default function ProfileScreen() {
             {image ? (
               <Image source={{ uri: image }} style={styles.coverImage} />
             ) : (
-              <View style={styles.placeholderImage}>
-                <Ionicons name="restaurant" size={50} color={COLORS.textLight} />
-                <Text style={styles.placeholderText}>Tap to add cover photo</Text>
+              <View style={[styles.placeholderImage, { backgroundColor: isDark ? '#374151' : '#FCE7F3' }]}>
+                <Ionicons name="camera" size={50} color={colors.primary} />
+                <Text style={[styles.placeholderText, { color: colors.primary }]}>Tap to add cover photo</Text>
               </View>
             )}
             
-            {/* Camera Overlay Icon (Only when editing) */}
             {isEditing && (
               <View style={styles.cameraOverlay}>
-                <Ionicons name="camera" size={24} color="white" />
+                <Ionicons name="camera" size={20} color="white" />
               </View>
             )}
           </View>
         </TouchableOpacity>
 
         <View style={styles.formContainer}>
-          <Text style={styles.sectionTitle}>Business Details</Text>
+          {isOnboarding && (
+             <Text style={[styles.onboardingHint, { color: colors.textLight }]}>
+               Almost done! Tell customers about your place.
+             </Text>
+          )}
+
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Business Details</Text>
           
+          {/* 1. Name Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Restaurant Name</Text>
+            <Text style={[styles.label, { color: colors.textLight }]}>Restaurant Name</Text>
             <TextInput
-              style={[styles.input, !isEditing && styles.disabledInput]}
+              style={[
+                styles.input, 
+                { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border },
+                !isEditing && styles.disabledInput
+              ]}
               value={name}
               onChangeText={setName}
               editable={isEditing}
+              placeholder="e.g. Mama's Pot"
+              placeholderTextColor={colors.textLight}
             />
           </View>
 
+          {/* 2. Address Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Address</Text>
+            <Text style={[styles.label, { color: colors.textLight }]}>Address</Text>
             <TextInput
-              style={[styles.input, !isEditing && styles.disabledInput]}
+              style={[
+                styles.input, 
+                { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border },
+                !isEditing && styles.disabledInput
+              ]}
               value={address}
               onChangeText={setAddress}
               editable={isEditing}
               multiline
+              placeholder="Where is your kitchen located?"
+              placeholderTextColor={colors.textLight}
             />
           </View>
 
           <View style={styles.row}>
+            {/* 3. Phone Input */}
             <View style={[styles.inputGroup, { flex: 1, marginRight: SPACING.m }]}>
-              <Text style={styles.label}>Phone Number</Text>
+              <Text style={[styles.label, { color: colors.textLight }]}>Phone Number</Text>
               <TextInput
-                style={[styles.input, !isEditing && styles.disabledInput]}
+                style={[
+                  styles.input, 
+                  { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border },
+                  !isEditing && styles.disabledInput
+                ]}
                 value={phone}
                 onChangeText={setPhone}
                 editable={isEditing}
                 keyboardType="phone-pad"
+                placeholder="080..."
+                placeholderTextColor={colors.textLight}
               />
             </View>
 
+            {/* 4. Prep Time Input */}
             <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.label}>Prep Time (mins)</Text>
+              <Text style={[styles.label, { color: colors.textLight }]}>Avg Prep Time (mins)</Text>
               <TextInput
-                style={[styles.input, !isEditing && styles.disabledInput]}
+                style={[
+                  styles.input, 
+                  { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border },
+                  !isEditing && styles.disabledInput
+                ]}
                 value={prepTime}
                 onChangeText={setPrepTime}
                 editable={isEditing}
                 keyboardType="numeric"
+                placeholder="25"
+                placeholderTextColor={colors.textLight}
               />
             </View>
           </View>
 
-          {/* --- Status Card --- */}
-          <View style={styles.statusCard}>
-            <View>
-              <Text style={styles.statusTitle}>Restaurant Status</Text>
-              <Text style={styles.statusSub}>Currently visible to customers</Text>
+          {/* Status Card (Only show if NOT onboarding) */}
+          {!isOnboarding && (
+            <View style={[styles.statusCard, { backgroundColor: colors.surface }]}>
+              <View>
+                <Text style={[styles.statusTitle, { color: colors.text }]}>Restaurant Status</Text>
+                <Text style={[styles.statusSub, { color: colors.textLight }]}>Currently visible to customers</Text>
+              </View>
+              <View style={[styles.badge, { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.2)' : '#ECFDF5' }]}>
+                <Text style={{ color: colors.success, fontWeight: 'bold' }}>OPEN</Text>
+              </View>
             </View>
-            <View style={[styles.badge, { backgroundColor: '#ECFDF5' }]}>
-              <Text style={{ color: COLORS.success, fontWeight: 'bold' }}>OPEN</Text>
-            </View>
-          </View>
+          )}
 
+          {/* Save Button (Only show in Edit Mode) */}
           {isEditing && (
             <TouchableOpacity 
-              style={styles.saveButton} 
+              style={[styles.saveButton, { backgroundColor: colors.primary }]} 
               onPress={handleSave}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text style={styles.saveButtonText}>Save Changes</Text>
+                <Text style={styles.saveButtonText}>
+                  {isOnboarding ? "Complete Setup & Go to Dashboard" : "Save Changes"}
+                </Text>
               )}
             </TouchableOpacity>
           )}
+
+          {/* --- APP SETTINGS (Dark Mode Toggle) --- */}
+          {!isOnboarding && (
+            <View style={{ marginTop: 30 }}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>App Settings</Text>
+              
+              <View style={[styles.settingsCard, { backgroundColor: colors.surface }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="moon" size={22} color={colors.text} style={{ marginRight: 12 }} />
+                  <Text style={{ fontSize: 16, color: colors.text, fontWeight: '600' }}>Dark Mode</Text>
+                </View>
+                
+                <Switch 
+                  value={isDark}
+                  onValueChange={(val) => setMode(val ? 'dark' : 'light')}
+                  trackColor={{ false: '#767577', true: colors.primary }}
+                  thumbColor={'#f4f3f4'}
+                />
+              </View>
+            </View>
+          )}
+
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background, paddingTop: Platform.OS === 'android' ? 30 : 0 },
+  container: { flex: 1 },
   header: { 
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: SPACING.l, backgroundColor: COLORS.white,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border 
+    padding: SPACING.l, 
+    borderBottomWidth: 1, 
+    ...SHADOWS.small
   },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.text },
-  editBtn: { fontSize: 16, fontWeight: '600', color: COLORS.primary },
+  headerTitle: { fontSize: 20, fontWeight: 'bold' },
+  editBtn: { fontSize: 16, fontWeight: '600' },
 
   imageContainer: { height: 200, width: '100%', position: 'relative' },
   coverImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   placeholderImage: { 
-    width: '100%', height: '100%', backgroundColor: '#E5E7EB', 
+    width: '100%', height: '100%', 
     justifyContent: 'center', alignItems: 'center' 
   },
-  placeholderText: { marginTop: 10, color: COLORS.textLight },
+  placeholderText: { marginTop: 10, fontWeight: '600' },
   cameraOverlay: {
     position: 'absolute', bottom: 16, right: 16,
-    backgroundColor: 'rgba(0,0,0,0.6)', padding: 10, borderRadius: 25
+    backgroundColor: 'rgba(0,0,0,0.6)', padding: 8, borderRadius: 20
   },
 
   formContainer: { padding: SPACING.l },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.text, marginBottom: SPACING.m },
+  onboardingHint: { fontSize: 16, marginBottom: SPACING.l, textAlign: 'center' },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: SPACING.m },
   
   inputGroup: { marginBottom: SPACING.m },
-  label: { fontSize: 13, color: COLORS.textLight, marginBottom: 6, fontWeight: '600' },
+  label: { fontSize: 13, marginBottom: 6, fontWeight: '600' },
   input: { 
-    backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border,
-    borderRadius: 8, padding: 12, fontSize: 16, color: COLORS.text 
+    borderWidth: 1,
+    borderRadius: 8, padding: 12, fontSize: 16 
   },
-  disabledInput: { backgroundColor: '#F9FAFB', borderColor: 'transparent', color: '#374151' },
+  disabledInput: { opacity: 0.7, borderWidth: 0 },
   row: { flexDirection: 'row' },
 
   statusCard: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: COLORS.white, padding: SPACING.m, borderRadius: 12,
+    padding: SPACING.m, borderRadius: 12,
     marginTop: SPACING.s, ...SHADOWS.small
   },
-  statusTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.text },
-  statusSub: { fontSize: 13, color: COLORS.textLight },
+  statusTitle: { fontSize: 16, fontWeight: 'bold' },
+  statusSub: { fontSize: 13 },
   badge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
 
+  settingsCard: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: 16, borderRadius: 12, ...SHADOWS.small
+  },
+
   saveButton: {
-    backgroundColor: COLORS.primary, padding: 16, borderRadius: 12,
+    padding: 16, borderRadius: 12,
     alignItems: 'center', marginTop: SPACING.xl, ...SHADOWS.medium
   },
-  saveButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: 16 }
+  saveButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
 });

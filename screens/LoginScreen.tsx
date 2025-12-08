@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
-  KeyboardAvoidingView, Platform, 
+  KeyboardAvoidingView, Platform, SafeAreaView 
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
@@ -17,27 +17,19 @@ export default function LoginScreen({ navigation }: any) {
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
-    >
+    <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      
-      <View style={styles.content}>
-        {/* Brand Header */}
-        <View style={styles.headerContainer}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>C</Text>
-          </View>
-          <Text style={styles.appName}>ChowEasy</Text>
-          <Text style={styles.tagline}>Vendor Partner App</Text>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.content}
+      >
+        <View style={styles.header}>
+          <Text style={styles.brandText}>ChowEasy</Text>
+          <Text style={styles.welcomeText}>Welcome back, Partner</Text>
+          <Text style={styles.subText}>Sign in to manage your kitchen.</Text>
         </View>
 
-        {/* Login Form */}
-        <View style={styles.formCard}>
-          <Text style={styles.welcomeText}>Welcome Back</Text>
-          <Text style={styles.subText}>Manage your kitchen efficiently</Text>
-
+        <View style={styles.form}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email Address</Text>
             <TextInput 
@@ -47,6 +39,7 @@ export default function LoginScreen({ navigation }: any) {
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
+              placeholderTextColor={COLORS.textLight}
             />
           </View>
 
@@ -58,65 +51,65 @@ export default function LoginScreen({ navigation }: any) {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              placeholderTextColor={COLORS.textLight}
             />
           </View>
 
-          <TouchableOpacity style={styles.button} onPress={handleLogin}>
-            <Text style={styles.buttonText}>Sign In</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.forgotBtn}>
+          <TouchableOpacity onPress={() => console.log("Forgot Password")}>
             <Text style={styles.forgotText}>Forgot Password?</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity style={styles.button} onPress={handleLogin}>
+            <Text style={styles.buttonText}>Log In</Text>
+          </TouchableOpacity>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>New to ChowEasy? </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
+            <Text style={styles.signupText}>Become a Vendor</Text>
+          </TouchableOpacity>
+        </View>
+
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  content: { flex: 1, justifyContent: 'center', padding: SPACING.l },
-  headerContainer: { alignItems: 'center', marginBottom: SPACING.xl },
-  logoCircle: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: SPACING.m,
-    ...SHADOWS.medium
-  },
-  logoText: { color: COLORS.white, fontSize: 32, fontWeight: 'bold' },
-  appName: { fontSize: 28, fontWeight: '800', color: COLORS.primary },
-  tagline: { fontSize: 16, color: COLORS.textLight, marginTop: SPACING.xs },
+  content: { flex: 1, padding: SPACING.l, justifyContent: 'center' },
   
-  formCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 24,
-    padding: SPACING.l,
-    ...SHADOWS.medium
-  },
-  welcomeText: { fontSize: 22, fontWeight: 'bold', color: COLORS.text },
-  subText: { fontSize: 14, color: COLORS.textLight, marginBottom: SPACING.l },
-  inputGroup: { marginBottom: SPACING.m },
-  label: { fontSize: 13, fontWeight: '600', color: COLORS.text, marginBottom: 6 },
+  header: { marginBottom: SPACING.xl },
+  brandText: { fontSize: 24, fontWeight: '900', color: COLORS.primary, marginBottom: SPACING.s },
+  welcomeText: { fontSize: 28, fontWeight: 'bold', color: COLORS.text, marginBottom: SPACING.xs },
+  subText: { fontSize: 16, color: COLORS.textLight },
+
+  form: { marginTop: SPACING.m },
+  inputGroup: { marginBottom: SPACING.l },
+  label: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 },
   input: {
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
     color: COLORS.text,
-    borderWidth: 1,
-    borderColor: COLORS.border
   },
+  
+  forgotText: { textAlign: 'right', color: COLORS.primary, fontWeight: '600', marginBottom: SPACING.l },
+  
   button: {
     backgroundColor: COLORS.primary,
+    paddingVertical: 18,
     borderRadius: 12,
-    padding: 18,
     alignItems: 'center',
-    marginTop: SPACING.s,
-    ...SHADOWS.small
+    ...SHADOWS.small,
   },
-  buttonText: { color: COLORS.white, fontWeight: 'bold', fontSize: 16 },
-  forgotBtn: { alignItems: 'center', marginTop: SPACING.m },
-  forgotText: { color: COLORS.primary, fontWeight: '600' }
+  buttonText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold' },
+
+  footer: { flexDirection: 'row', justifyContent: 'center', marginTop: SPACING.xl },
+  footerText: { color: COLORS.textLight, fontSize: 15 },
+  signupText: { color: COLORS.primary, fontWeight: 'bold', fontSize: 15 },
 });

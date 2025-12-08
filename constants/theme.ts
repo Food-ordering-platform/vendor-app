@@ -1,17 +1,65 @@
 // constants/theme.ts
-export const COLORS = {
-  primary: "#7b1e3a",      // ChowEasy Brand Red
-  primaryDark: "#5a1228",  // Darker shade for contrast
-  secondary: "#FFC107",    // Amber for ratings/warnings
-  background: "#F4F6F8",   // Light gray-blue professional background
-  surface: "#FFFFFF",      // Pure white for cards
-  text: "#111827",         // Nearly black for readability
-  textLight: "#6B7280",    // Muted gray
-  success: "#059669",      // Professional Green
-  danger: "#DC2626",       // Professional Red
-  border: "#E5E7EB",       // Subtle borders
+
+// 1. The "Ingredients" (Raw Colors)
+const PALETTE = {
+  redPrimary: "#7b1e3a",
+  redDark: "#5a1228",
+  redLight: "#a63f5b", // Lighter red for Dark Mode
+  amber: "#FFC107",
+  green: "#059669",
+  redDanger: "#DC2626",
+  
+  // Neutrals
   white: "#FFFFFF",
+  gray50: "#F9FAFB",
+  gray100: "#F4F6F8", // Your old background
+  gray200: "#E5E7EB", // Your old border
+  gray300: "#D1D5DB",
+  gray700: "#374151",
+  gray800: "#1F2937", // Your old text
+  gray900: "#111827",
+  black: "#000000",
 };
+
+// 2. The "Menu" (Light vs Dark Definitions)
+export const THEME = {
+  light: {
+    primary: PALETTE.redPrimary,
+    primaryDark: PALETTE.redDark,
+    secondary: PALETTE.amber,
+    background: PALETTE.gray100, // Matches your old background
+    surface: PALETTE.white,      // Matches your old surface
+    text: PALETTE.gray900,       // Matches your old text
+    textLight: "#6B7280",        // Matches your old textLight
+    success: PALETTE.green,
+    danger: PALETTE.redDanger,
+    border: PALETTE.gray200,
+    white: PALETTE.white,
+    
+    // Status Bar Props (Optional helper)
+    statusBar: 'dark-content' as const,
+  },
+  dark: {
+    primary: PALETTE.redLight,   // Lighter red shows better on black
+    primaryDark: PALETTE.redPrimary,
+    secondary: PALETTE.amber,
+    background: PALETTE.gray900, // Dark background
+    surface: PALETTE.gray800,    // Dark cards
+    text: PALETTE.gray50,        // White text
+    textLight: PALETTE.gray300,  // Light gray text
+    success: "#34D399",          // Brighter green for dark mode
+    danger: "#F87171",           // Brighter red for dark mode
+    border: PALETTE.gray700,
+    white: PALETTE.white,        // White is always white
+    
+    // Status Bar Props
+    statusBar: 'light-content' as const,
+  },
+};
+
+// 3. Backward Compatibility (The Safety Net)
+// This ensures 'import { COLORS } from ...' still works!
+export const COLORS = THEME.light;
 
 export const SHADOWS = {
   small: {
