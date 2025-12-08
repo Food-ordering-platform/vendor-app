@@ -7,12 +7,19 @@ type ThemeMode = 'light' | 'dark' | 'system';
 
 interface ThemeContextType {
   mode: ThemeMode;
-  colors: typeof THEME.light;
+  // ✅ FIX: Allow both Light AND Dark theme types
+  colors: typeof THEME.light | typeof THEME.dark; 
   isDark: boolean;
   setMode: (mode: ThemeMode) => void;
 }
 
-const ThemeContext = createContext<ThemeContextType>({} as any);
+// Initialize with a dummy default to satisfy TypeScript before the provider loads
+const ThemeContext = createContext<ThemeContextType>({
+  mode: 'system',
+  colors: THEME.light,
+  isDark: false,
+  setMode: () => {},
+});
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const systemScheme = useColorScheme();
@@ -21,8 +28,12 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   // Load saved preference on startup
   useEffect(() => {
     const loadTheme = async () => {
-      const saved = await AsyncStorage.getItem('app.theme');
-      if (saved) setModeState(saved as ThemeMode);
+      try {
+        const saved = await AsyncStorage.getItem('app.theme');
+        if (saved) setModeState(saved as ThemeMode);
+      } catch (e) {
+        console.log('Failed to load theme');
+      }
     };
     loadTheme();
   }, []);
@@ -30,12 +41,18 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   // Save preference when it changes
   const setMode = async (newMode: ThemeMode) => {
     setModeState(newMode);
-    await AsyncStorage.setItem('app.theme', newMode);
+    try {
+      await AsyncStorage.setItem('app.theme', newMode);
+    } catch (e) {
+      console.log('Failed to save theme');
+    }
   };
 
   // Determine actual active theme
   const activeMode = mode === 'system' ? (systemScheme || 'light') : mode;
-  const colors = THEME[activeMode];
+  
+  // ✅ This logic now works because the interface allows both types
+  const colors = activeMode === 'dark' ? THEME.dark : THEME.light;
 
   return (
     <ThemeContext.Provider value={{ mode, colors, isDark: activeMode === 'dark', setMode }}>
@@ -45,4 +62,4 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 // Custom Hook for easy access
-export const useTheme = () => useContext(ThemeContext);
+export const useTheme = () => useContext(ThemeContext)
