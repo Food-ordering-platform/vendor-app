@@ -17,6 +17,8 @@ import DashboardScreen from "./screens/DashboardScreen";
 import MenuScreen from "./screens/MenuScreen";
 import AddMenuItemScreen from "./screens/AddMenuItemScreen";
 import EarningsScreen from "./screens/EarningScreen";
+import SplashScreen from "./screens/SplashScreen";
+import { ThemeProvider } from "./context/themeContext";
 
 // 1. Create the two types of navigation we need
 const Stack = createNativeStackNavigator();
@@ -64,39 +66,33 @@ function VendorTabs() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
-        <StatusBar style="dark" />
+      <ThemeProvider>
+        <NavigationContainer>
+          <StatusBar style="dark" />
 
-        {/* The Stack handles the flow BEFORE they get into the dashboard */}
-        <Stack.Navigator
-          initialRouteName="Onboarding" // Start here
-          screenOptions={{ headerShown: false }}
-        >
-          {/* Step 1: Onboarding Slider */}
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-
-          {/* Step 2: Authentication */}
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Signup" component={SignupScreen} />
-
-          {/* Step 3: Setup (We put Profile here so we can force them to fill it before Dashboard) */}
-          <Stack.Screen name="Profile" component={ProfileScreen} />
-
-          {/* Step 4: The Actual App (Dashboard, Menu, etc.) */}
-          <Stack.Screen name="Main" component={VendorTabs} />
-
-          {/* Helper Screens (Like Modals) */}
-          <Stack.Screen
-            name="AddMenuItem"
-            component={AddMenuItemScreen}
-            options={{
-              headerShown: true,
-              title: "Add New Dish",
-              headerTintColor: COLORS.primary,
-            }}
-          />
-        </Stack.Navigator>
-      </NavigationContainer>
+          {/* The Stack handles the flow BEFORE they get into the dashboard */}
+          <Stack.Navigator
+            initialRouteName="Splash" // Start here
+            screenOptions={{ headerShown: false }}
+          >
+            <Stack.Screen name="Splash" component={SplashScreen} />
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Signup" component={SignupScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="Main" component={VendorTabs} />
+            <Stack.Screen
+              name="AddMenuItem"
+              component={AddMenuItemScreen}
+              options={{
+                headerShown: true,
+                title: "Add New Dish",
+                headerTintColor: COLORS.primary,
+              }}
+            />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

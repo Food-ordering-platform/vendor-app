@@ -31,7 +31,7 @@ export default function Header({ title, subtitle, showNotification = true, useLo
           {/* LOGO LOGIC */}
           {useLogo ? (
             <Image 
-              source={require('../assets/images/icon.png')} // Replace with your logo path
+              source={require('../assets/logo.png')} // Replace with your logo path
               style={{ width: 35, height: 35, marginRight: 10, borderRadius: 8 }}
             />
           ) : null}
