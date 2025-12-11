@@ -30,7 +30,9 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response) {
-      return Promise.reject({ message: error.response.data.message || "Something went wrong" });
+      // [FIX] Check for 'error' (backend standard) OR 'message'
+      const errorMessage = error.response.data.error || error.response.data.message || "Something went wrong";
+      return Promise.reject({ message: errorMessage });
     } else if (error.request) {
       return Promise.reject({ message: "Network Error. Check your internet connection." });
     } else {

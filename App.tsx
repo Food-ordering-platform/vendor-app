@@ -7,6 +7,8 @@ import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "./constants/theme";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AuthProvider } from "./context/authContext";
 
 // --- IMPORT ALL YOUR SCREENS ---
 import OnboardingScreen from "./screens/OnboardingScreen";
@@ -23,6 +25,7 @@ import { ThemeProvider } from "./context/themeContext";
 // 1. Create the two types of navigation we need
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+const queryClient = new QueryClient();
 
 // 2. Define the "Inside the App" area (The Tabs)
 // This only runs AFTER the user has logged in/signed up.
@@ -65,34 +68,38 @@ function VendorTabs() {
 // 3. The Main App Entry Point
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <NavigationContainer>
-          <StatusBar style="dark" />
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <SafeAreaProvider>
+          <ThemeProvider>
+            <NavigationContainer>
+              <StatusBar style="dark" />
 
-          {/* The Stack handles the flow BEFORE they get into the dashboard */}
-          <Stack.Navigator
-            initialRouteName="Splash" // Start here
-            screenOptions={{ headerShown: false }}
-          >
-            <Stack.Screen name="Splash" component={SplashScreen} />
-            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Signup" component={SignupScreen} />
-            <Stack.Screen name="Profile" component={ProfileScreen} />
-            <Stack.Screen name="Main" component={VendorTabs} />
-            <Stack.Screen
-              name="AddMenuItem"
-              component={AddMenuItemScreen}
-              options={{
-                headerShown: true,
-                title: "Add New Dish",
-                headerTintColor: COLORS.primary,
-              }}
-            />
-          </Stack.Navigator>
-        </NavigationContainer>
-      </ThemeProvider>
-    </SafeAreaProvider>
+              {/* The Stack handles the flow BEFORE they get into the dashboard */}
+              <Stack.Navigator
+                initialRouteName="Splash" // Start here
+                screenOptions={{ headerShown: false }}
+              >
+                <Stack.Screen name="Splash" component={SplashScreen} />
+                <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+                <Stack.Screen name="Login" component={LoginScreen} />
+                <Stack.Screen name="Signup" component={SignupScreen} />
+                <Stack.Screen name="Profile" component={ProfileScreen} />
+                <Stack.Screen name="Main" component={VendorTabs} />
+                <Stack.Screen
+                  name="AddMenuItem"
+                  component={AddMenuItemScreen}
+                  options={{
+                    headerShown: true,
+                    title: "Add New Dish",
+                    headerTintColor: COLORS.primary,
+                  }}
+                />
+              </Stack.Navigator>
+            </NavigationContainer>
+          </ThemeProvider>
+        </SafeAreaProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

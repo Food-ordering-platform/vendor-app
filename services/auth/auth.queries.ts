@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { authService } from './auth';
 import * as SecureStore from 'expo-secure-store';
-import { useAuth } from '../../context/AuthContext'; 
+import { useAuth } from '../../context/authContext'; 
 import { Alert } from 'react-native';
 import { 
   AuthResponse, 
@@ -23,13 +23,9 @@ export const useLogin = () => {
   return useMutation<AuthResponse, Error, LoginData>({
     mutationFn: authService.login,
     onSuccess: async (data) => {
-      // If your API returns a token immediately on login:
       if (data.token) {
         await saveSession(data.token, data.user);
-        setAuth(data.user);
-      } else {
-        // If 2FA is required, handle that flow here (e.g. navigate to Verify OTP)
-        console.log("2FA required or no token returned");
+        await setAuth(data.user, data.token); // [FIX] Pass both user and token
       }
     },
     onError: (error: any) => {
@@ -43,8 +39,6 @@ export const useRegister = () => {
   return useMutation<AuthResponse, Error, RegisterData>({
     mutationFn: authService.register,
     onSuccess: (data) => {
-      // Typically, after register, we send an OTP, so we don't login yet.
-      // Just return success so the UI can navigate to OTP screen.
       Alert.alert("Success", "Account created! Please check your email for OTP.");
     },
     onError: (error: any) => {
@@ -60,12 +54,13 @@ export const useVerifyOtp = () => {
   return useMutation<VerifyOtpResponse, Error, VerifyOtpPayload>({
     mutationFn: authService.verifyOtp,
     onSuccess: async (data) => {
-      // OTP verified -> Now we define the user as "Logged In"
+      // [FIX] Correctly pass both arguments to setAuth
       await saveSession(data.token, data.user);
-      setAuth(data.user);
+      await setAuth(data.user, data.token);
     },
     onError: (error: any) => {
-      Alert.alert("Verification Failed", "Invalid or expired code.");
+      const msg = error?.response?.data?.message || "Invalid or expired code.";
+      Alert.alert("Verification Failed", msg);
     }
   });
 };

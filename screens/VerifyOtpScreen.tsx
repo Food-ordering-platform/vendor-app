@@ -4,41 +4,36 @@ import {
   KeyboardAvoidingView, Platform, SafeAreaView, ActivityIndicator, Alert 
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useMutation } from '@tanstack/react-query';
-import { authService } from '../services/auth/auth';
-import { useAuth } from '../context/authContext';
-import { useTheme } from '../context/themeContext'; // For Dark Mode support
+import { useVerifyOtp } from '../services/auth/auth.queries'; // [FIX] Import the Hook
+import { useTheme } from '../context/themeContext';
 import { SPACING, SHADOWS } from '../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function VerifyOtpScreen({ route, navigation }: any) {
-  const { email, tempToken } = route.params; // Get passed data
+  const { email, token: tempToken } = route.params; 
   const { colors } = useTheme();
-  const { setAuth } = useAuth();
   
   const [code, setCode] = useState('');
 
-  // Mutation for Verification
-  const verifyMutation = useMutation({
-    mutationFn: authService.verifyOtp,
-    onSuccess: async (data) => {
-      // ✅ Server returns the REAL token here
-      await setAuth(data.user, data.token);
-      
-      // Navigate to Setup Profile (Onboarding flow)
-      navigation.replace('Profile', { isOnboarding: true });
-    },
-    onError: (error: any) => {
-      const msg = error?.response?.data?.message || "Invalid Code";
-      Alert.alert("Verification Failed", msg);
-    }
-  });
+  // [FIX] Use the hook which now correctly handles setAuth()
+  const { mutate: verify, isPending } = useVerifyOtp();
 
   const handleVerify = () => {
-    if (code.length < 4) {
-      Alert.alert("Error", "Please enter the full code.");
+    if (!code || code.length < 6) {
+      Alert.alert("Error", "Please enter the full 6-digit code.");
       return;
     }
-    verifyMutation.mutate({ token: tempToken, code });
+
+    verify(
+      { token: tempToken, code },
+      {
+        onSuccess: () => {
+          // The hook already logged the user in globally.
+          // We just need to navigate to the profile setup page.
+          navigation.replace('Profile', { isOnboarding: true });
+        }
+      }
+    );
   };
 
   return (
@@ -46,6 +41,10 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
       <StatusBar style="dark" />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.content}>
         
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </TouchableOpacity>
+
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>Verify Email</Text>
           <Text style={[styles.subText, { color: colors.textLight }]}>
@@ -75,9 +74,9 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
           <TouchableOpacity 
             style={[styles.button, { backgroundColor: colors.primary }]} 
             onPress={handleVerify}
-            disabled={verifyMutation.isPending}
+            disabled={isPending}
           >
-            {verifyMutation.isPending ? (
+            {isPending ? (
               <ActivityIndicator color="white" />
             ) : (
               <Text style={styles.buttonText}>Verify & Continue</Text>
@@ -97,6 +96,7 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { flex: 1, padding: SPACING.l, justifyContent: 'center' },
+  backBtn: { position: 'absolute', top: 50, left: 20, zIndex: 10 },
   header: { marginBottom: SPACING.xl, alignItems: 'center' },
   title: { fontSize: 24, fontWeight: 'bold', marginBottom: SPACING.s },
   subText: { fontSize: 16, textAlign: 'center', lineHeight: 22 },
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     padding: 16,
-    fontSize: 24, // Bigger font for OTP
+    fontSize: 24, 
     textAlign: 'center',
     letterSpacing: 5,
   },
