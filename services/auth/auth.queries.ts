@@ -59,7 +59,7 @@ export const useVerifyOtp = () => {
       await setAuth(data.user, data.token);
     },
     onError: (error: any) => {
-      const msg = error?.response?.data?.message || "Invalid or expired code.";
+      const msg = error.message || error?.response?.data?.message || "Verification Failed";
       Alert.alert("Verification Failed", msg);
     }
   });

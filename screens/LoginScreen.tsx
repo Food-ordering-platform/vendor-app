@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  View, Text, TextInput, TouchableOpacity, StyleSheet, 
+  View, Text, Alert, TextInput, TouchableOpacity, StyleSheet, 
   KeyboardAvoidingView, Platform, SafeAreaView, Image, ActivityIndicator 
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -8,6 +8,7 @@ import { useTheme } from '../context/themeContext';
 import { SPACING, SHADOWS } from '../constants/theme';
 import { useLogin } from '../services/auth/auth.queries'; // Import hook
 import { useAuth } from '../context/authContext';
+
 
 export default function LoginScreen({ navigation }: any) {
   const { colors, isDark } = useTheme();
@@ -27,6 +28,15 @@ export default function LoginScreen({ navigation }: any) {
       { email, password },
       {
         onSuccess: async (data) => {
+          //Check for verification Requirement
+          if(data.requireOtp){
+            navigation.navigate("VerifyOtp", {
+              //Navigate to OTP Screen with token background generated
+              token:data.token,
+              email:data.user.email
+            })
+            return;
+          }
           // Double check role
           if (data.user.role !== 'VENDOR') {
             alert("Unauthorized: This app is for Vendors only.");

@@ -33,6 +33,7 @@ export interface VerifyResetOtpPayload {
 
 export interface AuthResponse {
   token: string;
+  requireOtp?: boolean;
   user: {
     id: string;
     name: string;

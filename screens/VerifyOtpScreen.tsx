@@ -4,7 +4,7 @@ import {
   KeyboardAvoidingView, Platform, SafeAreaView, ActivityIndicator, Alert 
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useVerifyOtp } from '../services/auth/auth.queries'; // [FIX] Import the Hook
+import { useVerifyOtp } from '../services/auth/auth.queries';
 import { useTheme } from '../context/themeContext';
 import { SPACING, SHADOWS } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,23 +15,24 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
   
   const [code, setCode] = useState('');
 
-  // [FIX] Use the hook which now correctly handles setAuth()
   const { mutate: verify, isPending } = useVerifyOtp();
 
   const handleVerify = () => {
-    if (!code || code.length < 6) {
+    // [FIX 1] Trim the code to remove accidental spaces
+    const cleanCode = code.trim();
+
+    if (!cleanCode || cleanCode.length < 6) {
       Alert.alert("Error", "Please enter the full 6-digit code.");
       return;
     }
 
     verify(
-      { token: tempToken, code },
+      { token: tempToken, code: cleanCode },
       {
         onSuccess: () => {
-          // The hook already logged the user in globally.
-          // We just need to navigate to the profile setup page.
           navigation.replace('Profile', { isOnboarding: true });
-        }
+        },
+        // Error handling is managed in the hook now
       }
     );
   };
@@ -66,7 +67,7 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
               onChangeText={setCode}
               keyboardType="number-pad"
               placeholderTextColor={colors.textLight}
-              maxLength={6}
+              maxLength={7} // [FIX 2] Allow 7 chars so users can see if they typed a space
               autoFocus
             />
           </View>
@@ -84,7 +85,9 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20 }}>
-            <Text style={{ color: colors.textLight, textAlign: 'center' }}>Wrong email? Go Back</Text>
+            <Text style={{ color: colors.textLight, textAlign: 'center' }}>
+              Code expired? <Text style={{ fontWeight: 'bold' }}>Go back to login</Text>
+            </Text>
           </TouchableOpacity>
         </View>
 
