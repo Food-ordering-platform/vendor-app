@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Image, Text, StyleSheet, Animated, Platform } from 'react-native';
+import { View, Image,  StyleSheet, Animated, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { COLORS } from '../constants/theme'; 
 
@@ -71,11 +71,6 @@ export default function SplashScreen({ navigation }: any) {
           </View>
         </Animated.View>
 
-        {/* Brand Text */}
-        <Animated.View style={{ opacity: textFade, transform: [{ translateY: textSlide }] }}>
-          <Text style={styles.brandText}>ChowEasy</Text>
-          
-        </Animated.View>
       </View>
     </View>
   );
