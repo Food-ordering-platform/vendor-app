@@ -13,6 +13,7 @@ import {
 
 // Helper to save session
 const saveSession = async (token: string, user: any) => {
+  if (!token) return; // Prevent saving null/undefined
   await SecureStore.setItemAsync('auth_token', token);
   await SecureStore.setItemAsync('user_data', JSON.stringify(user));
 };
@@ -23,14 +24,20 @@ export const useLogin = () => {
   return useMutation<AuthResponse, Error, LoginData>({
     mutationFn: authService.login,
     onSuccess: async (data) => {
+      // Check if login requires OTP first
+      if (data.requireOtp) {
+         // UI handles redirection, we don't save session yet
+         return; 
+      }
+      
       if (data.token) {
         await saveSession(data.token, data.user);
-        await setAuth(data.user, data.token); // [FIX] Pass both user and token
+        await setAuth(data.user, data.token);
       }
     },
     onError: (error: any) => {
       const msg = error?.response?.data?.message || error.message || "Login failed";
-      Alert.alert("Error", msg);
+      Alert.alert("Login Failed", msg);
     },
   });
 };
@@ -38,12 +45,10 @@ export const useLogin = () => {
 export const useRegister = () => {
   return useMutation<AuthResponse, Error, RegisterData>({
     mutationFn: authService.register,
-    onSuccess: (data) => {
-      Alert.alert("Success", "Account created! Please check your email for OTP.");
-    },
+    // No onSuccess alert needed, UI handles navigation
     onError: (error: any) => {
-      const msg = error?.response?.data?.message || "Registration failed";
-      Alert.alert("Error", msg);
+      const msg = error?.response?.data?.message || error.message || "Registration failed";
+      Alert.alert("Registration Failed", msg);
     },
   });
 };
@@ -54,17 +59,28 @@ export const useVerifyOtp = () => {
   return useMutation<VerifyOtpResponse, Error, VerifyOtpPayload>({
     mutationFn: authService.verifyOtp,
     onSuccess: async (data) => {
-      // [FIX] Correctly pass both arguments to setAuth
+      // [FIX] Defensive check. Backend MUST return a token now.
+      if (!data.token) {
+        Alert.alert("Error", "Verified, but server sent no token. Please login.");
+        return;
+      }
       await saveSession(data.token, data.user);
       await setAuth(data.user, data.token);
     },
     onError: (error: any) => {
-      const msg = error.message || error?.response?.data?.message || "Verification Failed";
+      // User Friendly Error Handling
+      let msg = error?.response?.data?.message || error.message || "Verification Failed";
+      
+      // Catch specific backend error strings and make them nicer if needed
+      if (msg.includes("jwt expired")) msg = "Your code has expired. Please login again.";
+      if (msg.includes("malformed")) msg = "Invalid code format.";
+      
       Alert.alert("Verification Failed", msg);
     }
   });
 };
 
+// ... keep useForgotPassword and useResetPassword as is
 export const useForgotPassword = () => {
   return useMutation({
     mutationFn: authService.forgotPassword,

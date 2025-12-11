@@ -18,11 +18,11 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
   const { mutate: verify, isPending } = useVerifyOtp();
 
   const handleVerify = () => {
-    // [FIX 1] Trim the code to remove accidental spaces
+    // [FIX] Trim the code to remove accidental spaces from auto-correct
     const cleanCode = code.trim();
 
     if (!cleanCode || cleanCode.length < 6) {
-      Alert.alert("Error", "Please enter the full 6-digit code.");
+      Alert.alert("Invalid Input", "Please enter the full 6-digit code.");
       return;
     }
 
@@ -32,7 +32,6 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
         onSuccess: () => {
           navigation.replace('Profile', { isOnboarding: true });
         },
-        // Error handling is managed in the hook now
       }
     );
   };
@@ -51,6 +50,9 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
           <Text style={[styles.subText, { color: colors.textLight }]}>
             We sent a code to <Text style={{ fontWeight: 'bold' }}>{email}</Text>
           </Text>
+          <Text style={{fontSize:12, color: colors.textLight, marginTop: 5}}>
+            (Check your spam folder if you do not see it)
+          </Text>
         </View>
 
         <View style={styles.form}>
@@ -67,7 +69,7 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
               onChangeText={setCode}
               keyboardType="number-pad"
               placeholderTextColor={colors.textLight}
-              maxLength={7} // [FIX 2] Allow 7 chars so users can see if they typed a space
+              maxLength={8} // [FIX] Allow extra char for easy deletion of accidental spaces
               autoFocus
             />
           </View>
@@ -84,9 +86,9 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 20 }}>
+          <TouchableOpacity onPress={() => navigation.navigate('Login')} style={{ marginTop: 20 }}>
             <Text style={{ color: colors.textLight, textAlign: 'center' }}>
-              Code expired? <Text style={{ fontWeight: 'bold' }}>Go back to login</Text>
+              Code expired? <Text style={{ fontWeight: 'bold', color: colors.primary }}>Request a new one</Text>
             </Text>
           </TouchableOpacity>
         </View>
