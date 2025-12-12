@@ -2,13 +2,11 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  Alert,
   TextInput,
   TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   Image,
   ActivityIndicator,
 } from "react-native";
@@ -17,6 +15,7 @@ import { useTheme } from "../context/themeContext";
 import { SPACING, SHADOWS } from "../constants/theme";
 import { useLogin } from "../services/auth/auth.queries"; // Import hook
 import { useAuth } from "../context/authContext";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 export default function LoginScreen({ navigation }: any) {
   const { colors, isDark } = useTheme();
@@ -53,17 +52,13 @@ export default function LoginScreen({ navigation }: any) {
 
           // Save session
           await setAuth(data.user, data.token);
-
-          // Navigation is handled by App.tsx conditionally rendering,
-          // or we can manually replace:
-          navigation.navigate("Profile");
         },
       }
     );
   };
 
   return (
-    <SafeAreaView
+    <SafeAreaProvider
       style={[styles.container, { backgroundColor: colors.background }]}
     >
       <StatusBar style={isDark ? "light" : "dark"} />
@@ -165,7 +160,7 @@ export default function LoginScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
