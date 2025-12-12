@@ -8,7 +8,9 @@ import {
   LoginData, 
   RegisterData, 
   VerifyOtpPayload, 
-  VerifyOtpResponse 
+  VerifyOtpResponse, 
+  VerifyResetOtpPayload,
+  VerifyResetOtpResponse
 } from '../../types/auth.types';
 
 // Helper to save session
@@ -101,6 +103,16 @@ export const useResetPassword = () => {
     },
     onError: (error: any) => {
       Alert.alert("Error", "Failed to reset password.");
+    }
+  });
+};
+
+export const useVerifyResetOtp = () => {
+  return useMutation<VerifyResetOtpResponse, Error, VerifyResetOtpPayload>({
+    mutationFn: authService.verifyResetOtp,
+    onError: (error: any) => {
+      const msg = error?.response?.data?.message || error.message || "Invalid or expired code.";
+      Alert.alert("Error", msg);
     }
   });
 };

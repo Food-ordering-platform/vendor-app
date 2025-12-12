@@ -22,6 +22,9 @@ import EarningsScreen from "./screens/EarningScreen";
 import SplashScreen from "./screens/SplashScreen";
 import { ThemeProvider } from "./context/themeContext";
 import VerifyOtpScreen from "./screens/VerifyOtpScreen";
+import ForgotPasswordScreen from "./screens/ForgotPasswordScreen";
+import VerifyResetOtpScreen from "./screens/VerifyResetOtpScreen";
+import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 
 // 1. Create the two types of navigation we need
 const Stack = createNativeStackNavigator();
@@ -86,6 +89,18 @@ export default function App() {
                 <Stack.Screen name="Login" component={LoginScreen} />
                 <Stack.Screen name="Signup" component={SignupScreen} />
                 <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
+                <Stack.Screen
+                  name="ForgotPassword"
+                  component={ForgotPasswordScreen}
+                />
+                <Stack.Screen
+                  name="VerifyResetOtp"
+                  component={VerifyResetOtpScreen}
+                />
+                <Stack.Screen
+                  name="ResetPassword"
+                  component={ResetPasswordScreen}
+                />
                 <Stack.Screen name="Profile" component={ProfileScreen} />
                 <Stack.Screen name="Main" component={VendorTabs} />
                 <Stack.Screen

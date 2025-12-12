@@ -17,7 +17,10 @@ export const authService = {
   // 1. Login
   login: async (data: LoginData): Promise<AuthResponse> => {
     const response = await api.post('/auth/login', { ...data, role: 'VENDOR' });
-    return response.data;
+    if(response.data.result){
+      return response.data.result
+    }
+    return response.data
   },
 
   // 2. Register
