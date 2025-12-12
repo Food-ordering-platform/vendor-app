@@ -5,12 +5,12 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "./constants/theme";
-import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context"; // [IMPORT THIS]
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context"; 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./context/authContext";
 import { ActivityIndicator, View, Platform } from "react-native";
 
-// ... Import all your screens ... 
+// Screens
 import OnboardingScreen from "./screens/OnboardingScreen";
 import LoginScreen from "./screens/LoginScreen";
 import SignupScreen from "./screens/SignupScreen";
@@ -30,10 +30,11 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const queryClient = new QueryClient();
 
-// [MODIFIED] VendorTabs with Dynamic Safe Area
+// --- 1. THE TABS (Main App) ---
 function VendorTabs() {
-  const insets = useSafeAreaInsets(); // Get safe area values
- return (
+  const insets = useSafeAreaInsets(); 
+
+  return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
@@ -42,22 +43,14 @@ function VendorTabs() {
         tabBarStyle: {
           backgroundColor: '#fff',
           borderTopWidth: 0,
-          elevation: 10, // Shadow for Android
-          shadowColor: '#000', // Shadow for iOS
+          elevation: 10,
+          shadowColor: '#000',
           shadowOpacity: 0.1,
           shadowRadius: 10,
-          
-          // [FIX] 1. Dynamic Height
-          // 60px is the perfect height for Icon + Text. 
-          // We add the device's bottom inset (for iPhone home bar) to it.
-          // If no inset (Old Android), we add 10px buffer.
-          height: 60 + (insets.bottom > 0 ? insets.bottom : 10),
-          
-          // [FIX] 2. Dynamic Padding
-          // This pushes the icons/text UP so they don't get covered by the home bar.
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
-          
-          paddingTop: 10, 
+          // Fixed Dynamic Height Logic
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 20,
+          paddingTop: 12,
+          height: 'auto', // Let padding dictate height
         },
         tabBarIcon: ({ color, focused }) => {
           let iconName: any;
@@ -70,7 +63,7 @@ function VendorTabs() {
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
-          marginBottom: 5, // [FIX] Add small margin to separate text from bottom
+          marginBottom: 0, 
         }
       })}
     >
@@ -82,11 +75,9 @@ function VendorTabs() {
   );
 }
 
-// ... NavigationContent and App component remain the same as previous step ...
-// (Ensure you keep the NavigationContent logic we discussed previously)
-
+// --- 2. NAVIGATION CONTROLLER ---
 function NavigationContent() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth(); // [FIX] Get 'user' to check restaurant status
 
   if (isLoading) {
     return (
@@ -101,11 +92,23 @@ function NavigationContent() {
       <StatusBar style="dark" />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
-          <>
-            <Stack.Screen name="Main" component={VendorTabs} />
-            <Stack.Screen name="AddMenuItem" component={AddMenuItemScreen} />
-          </>
+          // [LOGIC] Check if user has a restaurant
+          user?.restaurant ? (
+            // HAS RESTAURANT -> Go to Dashboard
+            <>
+              <Stack.Screen name="Main" component={VendorTabs} />
+              <Stack.Screen name="AddMenuItem" component={AddMenuItemScreen} />
+            </>
+          ) : (
+            // NO RESTAURANT -> Go to Profile (Setup Mode)
+            <Stack.Screen 
+              name="Profile" 
+              component={ProfileScreen} 
+              initialParams={{ isOnboarding: true }} // Tell profile screen we are in setup mode
+            />
+          )
         ) : (
+          // NOT LOGGED IN -> Auth Flow
           <>
             <Stack.Screen name="Splash" component={SplashScreen} />
             <Stack.Screen name="Onboarding" component={OnboardingScreen} />

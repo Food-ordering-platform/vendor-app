@@ -40,8 +40,20 @@ export interface AuthResponse {
     email: string;
     phone: string;
     role: "VENDOR";
+    restaurant?: {
+      id: string;
+      name: string;
+      address: string;
+      phone: string;
+      email: string;
+      prepTime: number;
+      minimumOrder: number;
+      isOpen: boolean;
+      imageUrl?: string;
+      ownerId: string;
+    } | null;
   };
-}
+  };
 
 
 export interface VerifyOtpResponse {

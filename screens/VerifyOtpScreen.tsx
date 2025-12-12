@@ -30,7 +30,7 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
       { token: tempToken, code: cleanCode },
       {
         onSuccess: () => {
-          navigation.replace('Profile', { isOnboarding: true });
+          // navigation.replace('Profile', { isOnboarding: true });
         },
       }
     );
