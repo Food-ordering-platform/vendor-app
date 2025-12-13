@@ -3,21 +3,22 @@ import * as SecureStore from "expo-secure-store";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
-if(!BASE_URL){
-    throw new Error("MIssing API URL! Check your env file");
+if (!BASE_URL) {
+  console.error("❌ Missing API URL! Check your .env file");
 }
 
 const api = axios.create({
-    baseURL: BASE_URL,
-    headers:{
-        "Content-Type": "application/json",
-    },
-    timeout: 10000,
-})
+  baseURL: BASE_URL,
+  // ⚠️ IMPORTANT: Do NOT set "Content-Type" here. 
+  // Axios will automatically set 'application/json' for normal objects
+  // and 'multipart/form-data' (with boundary) for FormData.
+  timeout: 60000, // 60 seconds (Good for slow image uploads)
+});
 
+// Add Token to requests
 api.interceptors.request.use(
   async (config) => {
-    const token = await SecureStore.getItemAsync('auth_token');
+    const token = await SecureStore.getItemAsync("auth_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -26,16 +27,21 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Handle Responses & Errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response) {
-      // [FIX] Check for 'error' (backend standard) OR 'message'
-      const errorMessage = error.response.data.error || error.response.data.message || "Something went wrong";
-      return Promise.reject({ message: errorMessage });
+      // Backend responded with an error (4xx, 5xx)
+      console.error("❌ API Error:", error.response.status, error.response.data);
+      const message = error.response.data.message || error.response.data.error || "Something went wrong";
+      return Promise.reject({ message, status: error.response.status });
     } else if (error.request) {
-      return Promise.reject({ message: "Network Error. Check your internet connection." });
+      // Request was sent but no response (Network Error / Timeout)
+      console.error("❌ Network Error:", error.message);
+      return Promise.reject({ message: "Network Error. Check internet or server status." });
     } else {
+      console.error("❌ Unknown Error:", error.message);
       return Promise.reject({ message: "An unexpected error occurred." });
     }
   }

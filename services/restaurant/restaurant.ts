@@ -1,3 +1,5 @@
+// food-ordering-platform/vendor-app/vendor-app-work-branch/services/restaurant/restaurant.ts
+
 import api from "../axios";
 import {
   CreateRestaurantPayload,
@@ -7,6 +9,7 @@ import { Platform } from "react-native";
 
 const createFormData = (payload: CreateRestaurantPayload) => {
   const formData = new FormData();
+  
   formData.append("name", payload.name);
   formData.append("address", payload.address);
   formData.append("phone", payload.phone);
@@ -21,10 +24,7 @@ const createFormData = (payload: CreateRestaurantPayload) => {
 
     // @ts-ignore: React Native FormData expects this structure
     formData.append("image", {
-      uri:
-        Platform.OS === "android"
-          ? payload.imageUri
-          : payload.imageUri.replace("file://", ""),
+      uri: Platform.OS === "android" ? payload.imageUri : payload.imageUri.replace("file://", ""),
       name: filename || "upload.jpg",
       type,
     });
@@ -34,17 +34,38 @@ const createFormData = (payload: CreateRestaurantPayload) => {
 };
 
 export const restaurantService = {
-  //Create a new restaurant (GO live)
+  // Create Restaurant
   createRestaurant: async (data: CreateRestaurantPayload) => {
     const formData = createFormData(data);
-    // Axios auto-sets 'Content-Type: multipart/form-data' when it sees FormData
-    const response = await api.post('/restaurant', formData);
+    
+    const response = await api.post('/restaurant', formData, {
+      // [FIX] Do NOT set Content-Type header here.
+      // Let the native network layer generate it with the correct 'boundary'.
+      headers: {
+        Accept: 'application/json',
+      },
+      // [FIX] Prevent Axios from stringifying the FormData
+      transformRequest: (data) => {
+        return data;
+      },
+    });
     return response.data;
   },
-  //Update Restaurant
- updateRestaurant: async ({ id, data }: UpdateRestaurantPayload) => {
+
+  // Update Restaurant
+  updateRestaurant: async ({ id, data }: UpdateRestaurantPayload) => {
     const formData = createFormData(data);
-    const response = await api.put(`/restaurant/${id}`, formData);
+
+    const response = await api.put(`/restaurant/${id}`, formData, {
+      // [FIX] Do NOT set Content-Type header here.
+      headers: {
+        Accept: 'application/json',
+      },
+      // [FIX] Prevent Axios from stringifying the FormData
+      transformRequest: (data) => {
+        return data;
+      },
+    });
     return response.data;
   }
 };

@@ -9,11 +9,11 @@ export const useCreateRestaurant = () => {
   return useMutation({
     mutationFn: (data: CreateRestaurantPayload) => restaurantService.createRestaurant(data),
     onSuccess: () => {
-      // Refresh user data so the new restaurant appears in the context immediately
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
     },
     onError: (error: any) => {
-      const msg = error?.response?.data?.message || error.message || "Failed to create restaurant";
+      console.log("Create Mutation Failed:", error); // [LOG]
+      const msg = error.message || "Failed to create restaurant";
       Alert.alert("Error", msg);
     }
   });
@@ -28,8 +28,17 @@ export const useUpdateRestaurant = () => {
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
     },
     onError: (error: any) => {
-      const msg = error?.response?.data?.message || error.message || "Failed to update profile";
-      Alert.alert("Error", msg);
+      console.log("Update Mutation Failed:", error); // [LOG]
+      
+      // [FIX] Read from error.message directly (from our axios interceptor)
+      const msg = error.message || "Failed to update profile";
+      
+      // Optional: Show status specific hints
+      if (error.status === 403) {
+         Alert.alert("Permission Denied", "You do not have permission to edit this restaurant.");
+      } else {
+         Alert.alert("Error", msg);
+      }
     }
   });
 };
