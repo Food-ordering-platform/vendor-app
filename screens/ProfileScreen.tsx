@@ -9,7 +9,7 @@ import { useTheme } from '../context/themeContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import api from '../services/axios'; // Direct API call for FormData
+import api from '../services/axios'; 
 
 export default function ProfileScreen({ navigation, route }: any) {
   const { user, logout } = useAuth();
@@ -19,15 +19,13 @@ export default function ProfileScreen({ navigation, route }: any) {
   const isSetupMode = route.params?.isOnboarding || false;
   const hasRestaurant = !!user?.restaurant?.id;
 
-  // Form State
   const [restaurantName, setRestaurantName] = useState(user?.restaurant?.name || "");
   const [address, setAddress] = useState(user?.restaurant?.address || "");
   const [phone, setPhone] = useState(user?.restaurant?.phone || user?.phone || "");
   const [prepTime, setPrepTime] = useState(user?.restaurant?.prepTime?.toString() || "20");
   const [email, setEmail] = useState(user?.restaurant?.email || user?.email || ""); 
-  const [isOpen, setIsOpen] = useState(user?.restaurant?.isOpen ?? true); // Default Open
+  const [isOpen, setIsOpen] = useState(user?.restaurant?.isOpen ?? true);
   
-  // Image State
   const [image, setImage] = useState(user?.restaurant?.imageUrl || null); 
   const [newImageUri, setNewImageUri] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -42,7 +40,7 @@ export default function ProfileScreen({ navigation, route }: any) {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [16, 9], // Landscape Cover
+      aspect: [16, 9],
       quality: 0.7,
     });
 
@@ -61,39 +59,33 @@ export default function ProfileScreen({ navigation, route }: any) {
     setIsUploading(true);
 
     try {
-      // Create FormData
       const formData = new FormData();
       formData.append('name', restaurantName);
       formData.append('address', address);
       formData.append('phone', phone);
       formData.append('email', email);
       formData.append('prepTime', prepTime);
-      formData.append('isOpen', String(isOpen)); // Send as string "true"/"false"
+      formData.append('isOpen', String(isOpen));
 
       if (newImageUri) {
         const filename = newImageUri.split('/').pop();
         const match = /\.(\w+)$/.exec(filename || '');
         const type = match ? `image/${match[1]}` : `image`;
         
-        // @ts-ignore: React Native specific FormData
+        // @ts-ignore
         formData.append('image', { uri: newImageUri, name: filename, type });
       }
 
       if (hasRestaurant) {
-        // UPDATE
-        await api.put(`/restaurant/${user?.restaurant?.id}`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        // [FIX] Removed manual 'Content-Type' header. Axios handles it.
+        await api.put(`/restaurant/${user?.restaurant?.id}`, formData);
         Alert.alert("Success", "Profile Updated!");
       } else {
-        // CREATE
-        await api.post('/restaurant', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        // [FIX] Removed manual 'Content-Type' header.
+        await api.post('/restaurant', formData);
         Alert.alert("Success", "Restaurant is Live!");
       }
 
-      // Refresh User Data
       await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
 
       if (isSetupMode || !hasRestaurant) {
@@ -102,6 +94,7 @@ export default function ProfileScreen({ navigation, route }: any) {
 
     } catch (error: any) {
         const msg = error?.response?.data?.message || "Failed to save.";
+        console.error(error); // Log for debugging
         Alert.alert("Error", msg);
     } finally {
         setIsUploading(false);
@@ -193,7 +186,6 @@ export default function ProfileScreen({ navigation, route }: any) {
 
             {/* --- TOGGLES --- */}
             <View style={{ marginTop: 10 }}>
-                {/* Status Toggle */}
                 <View style={[styles.toggleRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <View>
                         <Text style={[styles.toggleTitle, { color: colors.text }]}>Restaurant Status</Text>
@@ -209,7 +201,6 @@ export default function ProfileScreen({ navigation, route }: any) {
                     />
                 </View>
 
-                {/* Dark Mode Toggle */}
                 <View style={[styles.toggleRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <View>
                         <Text style={[styles.toggleTitle, { color: colors.text }]}>Dark Mode</Text>
