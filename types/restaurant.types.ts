@@ -14,20 +14,16 @@ export interface Restaurant {
 export interface CreateRestaurantPayload{
     name: string
     address:string
-    prepTime:number
+    prepTime:string | number
     isOpen:boolean
+    email:string
     phone:string
+    imageUri?:string | null
 }
 
 export interface UpdateRestaurantPayload{
     id:string
-    data:{
-        name?:string
-        address:string
-        phone?:string
-        prepTime:number
-        isOpen:boolean
-    }
+    data:CreateRestaurantPayload
 }
 
 //DATA BEING SENT FROM THE BACKEND (GET REQUEST)

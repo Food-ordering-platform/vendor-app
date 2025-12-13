@@ -3,22 +3,22 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
   ScrollView, ActivityIndicator, Alert, Image, Switch 
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'; // [FIX] Use Safe Area Context
 import * as ImagePicker from 'expo-image-picker'; 
 import { useAuth } from '../context/authContext';
 import { useTheme } from '../context/themeContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { useQueryClient } from '@tanstack/react-query';
-import api from '../services/axios'; 
+import { useCreateRestaurant, useUpdateRestaurant } from '../services/restaurant/restaurant.queries';
 
 export default function ProfileScreen({ navigation, route }: any) {
   const { user, logout } = useAuth();
   const { colors, isDark, setMode } = useTheme();
-  const queryClient = useQueryClient();
   
   const isSetupMode = route.params?.isOnboarding || false;
   const hasRestaurant = !!user?.restaurant?.id;
 
+  // Form State
   const [restaurantName, setRestaurantName] = useState(user?.restaurant?.name || "");
   const [address, setAddress] = useState(user?.restaurant?.address || "");
   const [phone, setPhone] = useState(user?.restaurant?.phone || user?.phone || "");
@@ -26,9 +26,14 @@ export default function ProfileScreen({ navigation, route }: any) {
   const [email, setEmail] = useState(user?.restaurant?.email || user?.email || ""); 
   const [isOpen, setIsOpen] = useState(user?.restaurant?.isOpen ?? true);
   
+  // Image State
   const [image, setImage] = useState(user?.restaurant?.imageUrl || null); 
   const [newImageUri, setNewImageUri] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+
+  // Hooks
+  const { mutate: createRestaurant, isPending: isCreating } = useCreateRestaurant();
+  const { mutate: updateRestaurant, isPending: isUpdating } = useUpdateRestaurant();
+  const isPending = isCreating || isUpdating;
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -50,62 +55,45 @@ export default function ProfileScreen({ navigation, route }: any) {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!restaurantName || !address || !phone || !email) {
       Alert.alert("Missing Info", "Please fill in all details.");
       return;
     }
 
-    setIsUploading(true);
+    // Clean Payload (No FormData here!)
+    const payload = {
+      name: restaurantName,
+      address,
+      phone,
+      email,
+      prepTime, // String is fine, service handles conversion
+      isOpen,
+      imageUri: newImageUri // Only pass if new image selected
+    };
 
-    try {
-      const formData = new FormData();
-      formData.append('name', restaurantName);
-      formData.append('address', address);
-      formData.append('phone', phone);
-      formData.append('email', email);
-      formData.append('prepTime', prepTime);
-      formData.append('isOpen', String(isOpen));
+    const onSuccess = () => {
+       Alert.alert("Success", hasRestaurant ? "Profile Updated!" : "Restaurant is Live!");
+       if (isSetupMode || !hasRestaurant) {
+          navigation.replace('Main');
+       }
+    };
 
-      if (newImageUri) {
-        const filename = newImageUri.split('/').pop();
-        const match = /\.(\w+)$/.exec(filename || '');
-        const type = match ? `image/${match[1]}` : `image`;
-        
-        // @ts-ignore
-        formData.append('image', { uri: newImageUri, name: filename, type });
-      }
-
-      if (hasRestaurant) {
-        // [FIX] Removed manual 'Content-Type' header. Axios handles it.
-        await api.put(`/restaurant/${user?.restaurant?.id}`, formData);
-        Alert.alert("Success", "Profile Updated!");
-      } else {
-        // [FIX] Removed manual 'Content-Type' header.
-        await api.post('/restaurant', formData);
-        Alert.alert("Success", "Restaurant is Live!");
-      }
-
-      await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-
-      if (isSetupMode || !hasRestaurant) {
-        navigation.replace('Main');
-      }
-
-    } catch (error: any) {
-        const msg = error?.response?.data?.message || "Failed to save.";
-        console.error(error); // Log for debugging
-        Alert.alert("Error", msg);
-    } finally {
-        setIsUploading(false);
+    if (hasRestaurant) {
+      updateRestaurant(
+        { id: user?.restaurant?.id!, data: payload }, 
+        { onSuccess }
+      );
+    } else {
+      createRestaurant(payload, { onSuccess });
     }
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         
-        {/* Cover Image */}
+        {/* --- COVER IMAGE --- */}
         <TouchableOpacity onPress={pickImage} activeOpacity={0.8}>
           <View style={styles.imageContainer}>
             {image ? (
@@ -122,13 +110,14 @@ export default function ProfileScreen({ navigation, route }: any) {
           </View>
         </TouchableOpacity>
 
+        {/* --- CONTENT --- */}
         <View style={styles.content}>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
             {hasRestaurant ? "Edit Profile" : "Setup Kitchen"}
           </Text>
 
           <View style={styles.form}>
-            {/* Inputs */}
+            {/* Name */}
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.text }]}>Restaurant Name</Text>
               <TextInput
@@ -139,6 +128,8 @@ export default function ProfileScreen({ navigation, route }: any) {
                 placeholderTextColor={colors.textLight}
               />
             </View>
+
+            {/* Address */}
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.text }]}>Address</Text>
               <TextInput
@@ -149,6 +140,8 @@ export default function ProfileScreen({ navigation, route }: any) {
                 placeholderTextColor={colors.textLight}
               />
             </View>
+
+            {/* Email */}
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.text }]}>Email</Text>
               <TextInput
@@ -161,6 +154,8 @@ export default function ProfileScreen({ navigation, route }: any) {
                 autoCapitalize="none"
               />
             </View>
+
+            {/* Phone & Prep Time */}
             <View style={styles.row}>
                 <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
                     <Text style={[styles.label, { color: colors.text }]}>Phone</Text>
@@ -186,6 +181,7 @@ export default function ProfileScreen({ navigation, route }: any) {
 
             {/* --- TOGGLES --- */}
             <View style={{ marginTop: 10 }}>
+                {/* Status Toggle */}
                 <View style={[styles.toggleRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <View>
                         <Text style={[styles.toggleTitle, { color: colors.text }]}>Restaurant Status</Text>
@@ -201,6 +197,7 @@ export default function ProfileScreen({ navigation, route }: any) {
                     />
                 </View>
 
+                {/* Dark Mode Toggle */}
                 <View style={[styles.toggleRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <View>
                         <Text style={[styles.toggleTitle, { color: colors.text }]}>Dark Mode</Text>
@@ -218,12 +215,13 @@ export default function ProfileScreen({ navigation, route }: any) {
             </View>
           </View>
 
+          {/* Save Button */}
           <TouchableOpacity
             style={[styles.saveButton, { backgroundColor: colors.primary }]}
             onPress={handleSave}
-            disabled={isUploading}
+            disabled={isPending}
           >
-            {isUploading ? (
+            {isPending ? (
               <ActivityIndicator color="white" />
             ) : (
               <Text style={styles.saveButtonText}>
@@ -232,12 +230,13 @@ export default function ProfileScreen({ navigation, route }: any) {
             )}
           </TouchableOpacity>
 
+          {/* Logout Button */}
           <TouchableOpacity onPress={logout} style={styles.logoutButton}>
             <Text style={{ color: COLORS.danger, fontWeight: 'bold' }}>Log Out</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
