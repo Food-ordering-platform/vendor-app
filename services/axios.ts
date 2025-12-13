@@ -9,15 +9,20 @@ if (!BASE_URL) {
 
 const api = axios.create({
   baseURL: BASE_URL,
-  // ⚠️ IMPORTANT: Do NOT set "Content-Type" here. 
-  // Axios will automatically set 'application/json' for normal objects
-  // and 'multipart/form-data' (with boundary) for FormData.
+  headers: {
+    "Accept": "application/json",
+  },
   timeout: 60000, // 60 seconds (Good for slow image uploads)
 });
 
 // Add Token to requests
+// services/axios.ts
+
 api.interceptors.request.use(
   async (config) => {
+    // 👇 ADD THIS LOG
+    console.log(`🚀 Requesting: ${config.baseURL}${config.url}`);
+    
     const token = await SecureStore.getItemAsync("auth_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;

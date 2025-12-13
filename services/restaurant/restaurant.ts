@@ -1,4 +1,4 @@
-// food-ordering-platform/vendor-app/vendor-app-work-branch/services/restaurant/restaurant.ts
+
 
 import api from "../axios";
 import {
@@ -7,9 +7,11 @@ import {
 } from "../../types/restaurant.types";
 import { Platform } from "react-native";
 
+
 const createFormData = (payload: CreateRestaurantPayload) => {
   const formData = new FormData();
-  
+
+  // Append text fields
   formData.append("name", payload.name);
   formData.append("address", payload.address);
   formData.append("phone", payload.phone);
@@ -17,16 +19,27 @@ const createFormData = (payload: CreateRestaurantPayload) => {
   formData.append("prepTime", String(payload.prepTime));
   formData.append("isOpen", String(payload.isOpen));
 
+  // [CRITICAL FIX] Image Handling
   if (payload.imageUri) {
-    const filename = payload.imageUri.split("/").pop();
-    const match = /\.(\w+)$/.exec(filename || "");
+    // 1. Android NEEDS 'file://' prefix. iOS sometimes prefers it removed, 
+    // but expo-image-picker usually returns it correctly.
+    // We ensure it's there for Android if missing.
+    let uri = payload.imageUri;
+    if (Platform.OS === 'android' && !uri.startsWith('file://')) {
+      uri = `file://${uri}`;
+    }
+
+    // 2. Extract filename and type
+    const filename = uri.split("/").pop() || "upload.jpg";
+    const match = /\.(\w+)$/.exec(filename);
     const type = match ? `image/${match[1]}` : `image/jpeg`;
 
-    // @ts-ignore: React Native FormData expects this structure
+    // 3. Append as an object (React Native specific format)
+    // @ts-ignore
     formData.append("image", {
-      uri: Platform.OS === "android" ? payload.imageUri : payload.imageUri.replace("file://", ""),
-      name: filename || "upload.jpg",
-      type,
+      uri: uri,
+      name: filename,
+      type: type,
     });
   }
 
@@ -39,14 +52,13 @@ export const restaurantService = {
     const formData = createFormData(data);
     
     const response = await api.post('/restaurant', formData, {
-      // [FIX] Do NOT set Content-Type header here.
-      // Let the native network layer generate it with the correct 'boundary'.
       headers: {
-        Accept: 'application/json',
+        // [TRICKY FIX] Some Axios versions on Android NEED this header explicitly
+        'Content-Type': 'multipart/form-data', 
       },
-      // [FIX] Prevent Axios from stringifying the FormData
-      transformRequest: (data) => {
-        return data;
+      // [CRITICAL] Prevent Axios from stringifying the FormData
+      transformRequest: (data, headers) => {
+        return data; // Return FormData as-is
       },
     });
     return response.data;
@@ -56,14 +68,13 @@ export const restaurantService = {
   updateRestaurant: async ({ id, data }: UpdateRestaurantPayload) => {
     const formData = createFormData(data);
 
-    const response = await api.put(`/restaurant/${id}`, formData, {
-      // [FIX] Do NOT set Content-Type header here.
+    // [FIX] Use POST (matching backend) + Multipart headers + transformRequest
+    const response = await api.post(`/restaurant/${id}`, formData, {
       headers: {
-        Accept: 'application/json',
+        'Content-Type': 'multipart/form-data',
       },
-      // [FIX] Prevent Axios from stringifying the FormData
-      transformRequest: (data) => {
-        return data;
+      transformRequest: (data, headers) => {
+        return data; // Return FormData as-is
       },
     });
     return response.data;

@@ -1,9 +1,11 @@
+// food-ordering-platform/vendor-app/vendor-app-work-branch/screens/ProfileScreen.tsx
+
 import React, { useState } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
   ScrollView, ActivityIndicator, Alert, Image, Switch 
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context'; // [FIX] Use Safe Area Context
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker'; 
 import { useAuth } from '../context/authContext';
 import { useTheme } from '../context/themeContext';
@@ -61,15 +63,15 @@ export default function ProfileScreen({ navigation, route }: any) {
       return;
     }
 
-    // Clean Payload (No FormData here!)
+    // Clean Payload
     const payload = {
       name: restaurantName,
       address,
       phone,
       email,
-      prepTime, // String is fine, service handles conversion
+      prepTime,
       isOpen,
-      imageUri: newImageUri // Only pass if new image selected
+      imageUri: newImageUri
     };
 
     const onSuccess = () => {
@@ -80,8 +82,14 @@ export default function ProfileScreen({ navigation, route }: any) {
     };
 
     if (hasRestaurant) {
+      // [FIX] Safety check to ensure ID exists
+      if (!user?.restaurant?.id) {
+        Alert.alert("Error", "Restaurant ID not found. Please restart the app.");
+        return;
+      }
+
       updateRestaurant(
-        { id: user?.restaurant?.id!, data: payload }, 
+        { id: user.restaurant.id, data: payload }, 
         { onSuccess }
       );
     } else {
