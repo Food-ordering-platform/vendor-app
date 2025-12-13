@@ -16,6 +16,7 @@ export interface CreateRestaurantPayload{
     address:string
     prepTime:number
     isOpen:boolean
+    phone:string
 }
 
 export interface UpdateRestaurantPayload{

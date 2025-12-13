@@ -18,7 +18,6 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
   const { mutate: verify, isPending } = useVerifyOtp();
 
   const handleVerify = () => {
-    // [FIX] Trim the code to remove accidental spaces from auto-correct
     const cleanCode = code.trim();
 
     if (!cleanCode || cleanCode.length < 6) {
@@ -30,7 +29,9 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
       { token: tempToken, code: cleanCode },
       {
         onSuccess: () => {
-          // navigation.replace('Profile', { isOnboarding: true });
+          // [FIX] DO NOT NAVIGATE HERE.
+          // The query hook calls setAuth().
+          // App.tsx detects the change and automatically shows the Profile Screen.
         },
       }
     );
@@ -50,9 +51,6 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
           <Text style={[styles.subText, { color: colors.textLight }]}>
             We sent a code to <Text style={{ fontWeight: 'bold' }}>{email}</Text>
           </Text>
-          <Text style={{fontSize:12, color: colors.textLight, marginTop: 5}}>
-            (Check your spam folder if you do not see it)
-          </Text>
         </View>
 
         <View style={styles.form}>
@@ -69,7 +67,7 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
               onChangeText={setCode}
               keyboardType="number-pad"
               placeholderTextColor={colors.textLight}
-              maxLength={8} // [FIX] Allow extra char for easy deletion of accidental spaces
+              maxLength={8}
               autoFocus
             />
           </View>
@@ -109,18 +107,10 @@ const styles = StyleSheet.create({
   inputGroup: { marginBottom: SPACING.l },
   label: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
   input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 24, 
-    textAlign: 'center',
-    letterSpacing: 5,
+    borderWidth: 1, borderRadius: 12, padding: 16, fontSize: 24, textAlign: 'center', letterSpacing: 5,
   },
   button: {
-    paddingVertical: 18,
-    borderRadius: 12,
-    alignItems: 'center',
-    ...SHADOWS.small,
+    paddingVertical: 18, borderRadius: 12, alignItems: 'center', ...SHADOWS.small,
   },
   buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
 });

@@ -1,204 +1,272 @@
 import React, { useState } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
-  ScrollView, ActivityIndicator, Alert, SafeAreaView 
+  ScrollView, ActivityIndicator, Alert, Image, Switch 
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker'; 
 import { useAuth } from '../context/authContext';
 import { useTheme } from '../context/themeContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { useCreateRestaurant, useUpdateRestaurant } from '../services/restaurant/restaurant.queries';
+import { useQueryClient } from '@tanstack/react-query';
+import api from '../services/axios'; // Direct API call for FormData
 
 export default function ProfileScreen({ navigation, route }: any) {
   const { user, logout } = useAuth();
-  const { colors } = useTheme();
+  const { colors, isDark, setMode } = useTheme();
+  const queryClient = useQueryClient();
   
   const isSetupMode = route.params?.isOnboarding || false;
   const hasRestaurant = !!user?.restaurant?.id;
 
+  // Form State
   const [restaurantName, setRestaurantName] = useState(user?.restaurant?.name || "");
   const [address, setAddress] = useState(user?.restaurant?.address || "");
   const [phone, setPhone] = useState(user?.restaurant?.phone || user?.phone || "");
   const [prepTime, setPrepTime] = useState(user?.restaurant?.prepTime?.toString() || "20");
-  const [email, setEmail] = useState(user?.restaurant?.email || " ");
+  const [email, setEmail] = useState(user?.restaurant?.email || user?.email || ""); 
+  const [isOpen, setIsOpen] = useState(user?.restaurant?.isOpen ?? true); // Default Open
+  
+  // Image State
+  const [image, setImage] = useState(user?.restaurant?.imageUrl || null); 
+  const [newImageUri, setNewImageUri] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const { mutate: createRestaurant, isPending: isCreating } = useCreateRestaurant();
-  const { mutate: updateRestaurant, isPending: isUpdating } = useUpdateRestaurant();
-  const isPending = isCreating || isUpdating;
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'We need access to your gallery.');
+      return;
+    }
 
-  const handleSave = () => {
-    if (!restaurantName || !address || !phone) {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9], // Landscape Cover
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      setImage(result.assets[0].uri);
+      setNewImageUri(result.assets[0].uri);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!restaurantName || !address || !phone || !email) {
       Alert.alert("Missing Info", "Please fill in all details.");
       return;
     }
 
-    const payload = {
-      name: restaurantName,
-      address,
-      phone,
-      prepTime: parseInt(prepTime) || 20,
-      isOpen: true,
-    };
+    setIsUploading(true);
 
-    if (hasRestaurant) {
-      updateRestaurant({ id: user?.restaurant?.id!, data: payload }, {
-        onSuccess: () => {
-           Alert.alert("Success", "Profile Updated!");
-           // If we were in setup mode, this will now trigger App.tsx to switch to Main
-        }
-      });
-    } else {
-      createRestaurant(payload, {
-        onSuccess: () => {
-           Alert.alert("Success", "Restaurant is now Live!");
-           // This updates the user context -> App.tsx sees restaurant -> Switches to Main tabs
-        }
-      });
+    try {
+      // Create FormData
+      const formData = new FormData();
+      formData.append('name', restaurantName);
+      formData.append('address', address);
+      formData.append('phone', phone);
+      formData.append('email', email);
+      formData.append('prepTime', prepTime);
+      formData.append('isOpen', String(isOpen)); // Send as string "true"/"false"
+
+      if (newImageUri) {
+        const filename = newImageUri.split('/').pop();
+        const match = /\.(\w+)$/.exec(filename || '');
+        const type = match ? `image/${match[1]}` : `image`;
+        
+        // @ts-ignore: React Native specific FormData
+        formData.append('image', { uri: newImageUri, name: filename, type });
+      }
+
+      if (hasRestaurant) {
+        // UPDATE
+        await api.put(`/restaurant/${user?.restaurant?.id}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        Alert.alert("Success", "Profile Updated!");
+      } else {
+        // CREATE
+        await api.post('/restaurant', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        Alert.alert("Success", "Restaurant is Live!");
+      }
+
+      // Refresh User Data
+      await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+
+      if (isSetupMode || !hasRestaurant) {
+        navigation.replace('Main');
+      }
+
+    } catch (error: any) {
+        const msg = error?.response?.data?.message || "Failed to save.";
+        Alert.alert("Error", msg);
+    } finally {
+        setIsUploading(false);
     }
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={styles.content}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         
-        {/* --- 1. CLEAN HEADER (Previous Design Style) --- */}
-        <View style={styles.headerContainer}>
-          <Text style={[styles.title, { color: colors.text }]}>
-            {hasRestaurant ? "My Kitchen" : "Setup Kitchen"}
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.textLight }]}>
-            {hasRestaurant ? "Manage your profile details" : "Let's get your business online"}
-          </Text>
-        </View>
-
-        {/* --- 2. IMAGE SECTION --- */}
-        <View style={styles.imageContainer}>
-          <View style={styles.imagePlaceholder}>
-            <Ionicons name="storefront" size={50} color={colors.primary} />
+        {/* Cover Image */}
+        <TouchableOpacity onPress={pickImage} activeOpacity={0.8}>
+          <View style={styles.imageContainer}>
+            {image ? (
+              <Image source={{ uri: image }} style={styles.coverImage} />
+            ) : (
+              <View style={[styles.placeholderImage, { backgroundColor: colors.surface }]}>
+                <Ionicons name="camera" size={40} color={COLORS.primary} />
+                <Text style={[styles.addPhotoText, { color: COLORS.primary }]}>Add Cover Photo</Text>
+              </View>
+            )}
+            <View style={styles.editBadge}>
+              <Ionicons name="pencil" size={14} color="white" />
+            </View>
           </View>
-          <TouchableOpacity style={styles.changeLogoBtn}>
-            <Ionicons name="camera" size={16} color="white" />
-            <Text style={styles.changeLogoText}>Upload Logo</Text>
+        </TouchableOpacity>
+
+        <View style={styles.content}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            {hasRestaurant ? "Edit Profile" : "Setup Kitchen"}
+          </Text>
+
+          <View style={styles.form}>
+            {/* Inputs */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: colors.text }]}>Restaurant Name</Text>
+              <TextInput
+                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
+                value={restaurantName}
+                onChangeText={setRestaurantName}
+                placeholder="Mama's Kitchen"
+                placeholderTextColor={colors.textLight}
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: colors.text }]}>Address</Text>
+              <TextInput
+                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
+                value={address}
+                onChangeText={setAddress}
+                placeholder="123 Main St"
+                placeholderTextColor={colors.textLight}
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: colors.text }]}>Email</Text>
+              <TextInput
+                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="business@mail.com"
+                placeholderTextColor={colors.textLight}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+            <View style={styles.row}>
+                <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+                    <Text style={[styles.label, { color: colors.text }]}>Phone</Text>
+                    <TextInput
+                        style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
+                        value={phone}
+                        onChangeText={setPhone}
+                        keyboardType="phone-pad"
+                        placeholderTextColor={colors.textLight}
+                    />
+                </View>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                    <Text style={[styles.label, { color: colors.text }]}>Prep Time (Mins)</Text>
+                    <TextInput
+                        style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
+                        value={prepTime}
+                        onChangeText={setPrepTime}
+                        keyboardType="numeric"
+                        placeholderTextColor={colors.textLight}
+                    />
+                </View>
+            </View>
+
+            {/* --- TOGGLES --- */}
+            <View style={{ marginTop: 10 }}>
+                {/* Status Toggle */}
+                <View style={[styles.toggleRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View>
+                        <Text style={[styles.toggleTitle, { color: colors.text }]}>Restaurant Status</Text>
+                        <Text style={{ color: isOpen ? COLORS.success : COLORS.textLight, fontSize: 12 }}>
+                            {isOpen ? "Currently Open" : "Closed"}
+                        </Text>
+                    </View>
+                    <Switch
+                        value={isOpen}
+                        onValueChange={setIsOpen}
+                        trackColor={{ false: "#767577", true: COLORS.primary }}
+                        thumbColor={"#f4f3f4"}
+                    />
+                </View>
+
+                {/* Dark Mode Toggle */}
+                <View style={[styles.toggleRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View>
+                        <Text style={[styles.toggleTitle, { color: colors.text }]}>Dark Mode</Text>
+                        <Text style={{ color: colors.textLight, fontSize: 12 }}>
+                            {isDark ? "Dark Theme" : "Light Theme"}
+                        </Text>
+                    </View>
+                    <Switch
+                        value={isDark}
+                        onValueChange={(val) => setMode(val ? 'dark' : 'light')}
+                        trackColor={{ false: "#767577", true: COLORS.primary }}
+                        thumbColor={"#f4f3f4"}
+                    />
+                </View>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.saveButton, { backgroundColor: colors.primary }]}
+            onPress={handleSave}
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.saveButtonText}>
+                {hasRestaurant ? "Save Changes" : "Go Live"}
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={logout} style={styles.logoutButton}>
+            <Text style={{ color: COLORS.danger, fontWeight: 'bold' }}>Log Out</Text>
           </TouchableOpacity>
         </View>
-
-        {/* --- 3. FORM --- */}
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Restaurant Name</Text>
-            <TextInput
-              style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
-              value={restaurantName}
-              onChangeText={setRestaurantName}
-              placeholder="e.g. Mama's Kitchen"
-              placeholderTextColor={colors.textLight}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Address</Text>
-            <TextInput
-              style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
-              value={address}
-              onChangeText={setAddress}
-              placeholder="e.g. 123 Main St"
-              placeholderTextColor={colors.textLight}
-            />
-          </View>
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Email</Text>
-            <TextInput
-              style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="e.g. vendor@gmail.com"
-              placeholderTextColor={colors.textLight}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Phone Number</Text>
-            <TextInput
-              style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              placeholderTextColor={colors.textLight}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Prep Time (Mins)</Text>
-            <TextInput
-              style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
-              value={prepTime}
-              onChangeText={setPrepTime}
-              keyboardType="numeric"
-              placeholderTextColor={colors.textLight}
-            />
-          </View>
-        </View>
-
-        {/* --- 4. ACTION BUTTON --- */}
-        <TouchableOpacity
-          style={[styles.saveButton, { backgroundColor: colors.primary }]}
-          onPress={handleSave}
-          disabled={isPending}
-        >
-          {isPending ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.saveButtonText}>
-              {hasRestaurant ? "Update Profile" : "Go Live"}
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {/* --- 5. LOGOUT BUTTON (Added as requested) --- */}
-        <TouchableOpacity onPress={logout} style={styles.logoutButton}>
-          <Ionicons name="log-out-outline" size={20} color={COLORS.danger} style={{ marginRight: 8 }} />
-          <Text style={{ color: COLORS.danger, fontWeight: 'bold', fontSize: 16 }}>Log Out</Text>
-        </TouchableOpacity>
-
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: SPACING.l, paddingBottom: 40 },
-  
-  headerContainer: { marginBottom: SPACING.xl, marginTop: SPACING.m },
-  title: { fontSize: 28, fontWeight: 'bold' },
-  subtitle: { fontSize: 16, marginTop: 5 },
-
-  imageContainer: { alignItems: 'center', marginBottom: SPACING.xl },
-  imagePlaceholder: {
-    width: 120, height: 120, borderRadius: 60,
-    backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 15
-  },
-  changeLogoBtn: { 
-    flexDirection: 'row', alignItems: 'center', 
-    backgroundColor: COLORS.primary, paddingVertical: 8, paddingHorizontal: 16, 
-    borderRadius: 20 
-  },
-  changeLogoText: { color: 'white', fontWeight: '600', marginLeft: 6 },
-
+  imageContainer: { height: 200, width: '100%', position: 'relative' },
+  coverImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  placeholderImage: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', borderBottomWidth: 1, borderColor: '#eee' },
+  addPhotoText: { marginTop: 8, fontWeight: '600', fontSize: 14 },
+  editBadge: { position: 'absolute', bottom: 15, right: 15, backgroundColor: 'rgba(0,0,0,0.6)', padding: 8, borderRadius: 20 },
+  content: { padding: SPACING.l },
+  headerTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
   form: { gap: 15 },
-  inputGroup: { marginBottom: 10 },
-  label: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
-  input: { borderWidth: 1, borderRadius: 12, padding: 16, fontSize: 16 },
-
-  saveButton: {
-    marginTop: 30, paddingVertical: 18, borderRadius: 12,
-    alignItems: 'center', ...SHADOWS.medium
-  },
+  inputGroup: { marginBottom: 5 },
+  label: { fontSize: 13, fontWeight: '600', marginBottom: 6, opacity: 0.8 },
+  input: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 16 },
+  row: { flexDirection: 'row' },
+  toggleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 12, borderWidth: 1, marginBottom: 10 },
+  toggleTitle: { fontSize: 16, fontWeight: '600', marginBottom: 2 },
+  saveButton: { marginTop: 20, paddingVertical: 18, borderRadius: 12, alignItems: 'center', ...SHADOWS.medium },
   saveButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-
-  logoutButton: { 
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    marginTop: 30, padding: 15 
-  }
+  logoutButton: { alignItems: 'center', marginTop: 25, padding: 10 }
 });

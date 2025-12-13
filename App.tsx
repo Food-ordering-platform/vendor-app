@@ -35,7 +35,7 @@ function VendorTabs() {
   const insets = useSafeAreaInsets(); 
 
   return (
-    <Tab.Navigator
+   <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
@@ -47,10 +47,15 @@ function VendorTabs() {
           shadowColor: '#000',
           shadowOpacity: 0.1,
           shadowRadius: 10,
-          // Fixed Dynamic Height Logic
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 20,
-          paddingTop: 12,
-          height: 'auto', // Let padding dictate height
+          
+          // [FIX] Use calculated height instead of 'auto'
+          // 60px is the content area. We add the bottom inset to it.
+          height: 60 + (insets.bottom > 0 ? insets.bottom : 10),
+          
+          // [FIX] Push content up by the safe area amount
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
+          
+          paddingTop: 10, // Top spacing for balance
         },
         tabBarIcon: ({ color, focused }) => {
           let iconName: any;
@@ -63,7 +68,7 @@ function VendorTabs() {
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
-          marginBottom: 0, 
+          marginBottom: 5, // [FIX] Add slight margin to separate text from bottom edge
         }
       })}
     >
