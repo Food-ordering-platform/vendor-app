@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { restaurantService } from './restaurant';
 import { Alert } from 'react-native';
 import { CreateRestaurantPayload, UpdateRestaurantPayload } from "../../types/restaurant.types";
@@ -39,6 +39,38 @@ export const useUpdateRestaurant = () => {
       } else {
          Alert.alert("Error", msg);
       }
+    }
+  });
+};
+
+// ================= NEW HOOKS =================
+
+// 1. Hook to Fetch Menu Items
+export const useGetMenuItems = (restaurantId: string) => {
+  return useQuery({
+    queryKey: ['menuItems', restaurantId], // Unique key per restaurant
+    queryFn: () => restaurantService.getMenuItems(restaurantId),
+    enabled: !!restaurantId, // Only run query if we have an ID
+  });
+};
+
+// 2. Hook to Add Menu Item
+export const useAddMenuItem = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    // We expect an object containing both the ID and the data
+    mutationFn: ({ restaurantId, data }: { restaurantId: string; data: any }) => 
+      restaurantService.addMenuItem(restaurantId, data),
+      
+    onSuccess: (_, variables) => {
+      // ✅ This is the magic part: It forces the 'MenuScreen' to re-fetch the list immediately
+      queryClient.invalidateQueries({ queryKey: ['menuItems', variables.restaurantId] });
+      // We can handle navigation in the component, or show success here
+    },
+    onError: (error: any) => {
+      const msg = error.message || "Failed to add menu item";
+      Alert.alert("Error", msg);
     }
   });
 };

@@ -12,7 +12,7 @@ const { width } = Dimensions.get('window');
 
 const SLIDES = [
   { id: '1', title: 'Manage Your Menu', description: 'Easily add new dishes, update prices, and control availability instantly.', icon: 'restaurant' },
-  { id: '2', title: 'Live Order Command', description: 'Receive real-time order alerts. Accept, cook, and dispatch riders with one tap.', icon: 'notifications' },
+  { id: '2', title: 'Live Order', description: 'Receive real-time order alerts. Accept, cook, and dispatch riders with one tap.', icon: 'notifications' },
   { id: '3', title: 'Track Your Growth', description: 'Monitor your daily earnings and withdraw your funds whenever you need.', icon: 'wallet' },
 ];
 
