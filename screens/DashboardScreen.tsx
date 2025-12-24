@@ -1,92 +1,223 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
   FlatList,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
+  StatusBar
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SPACING, SHADOWS } from "../constants/theme";
-import Header from "../components/HeaderTemp";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../context/themeContext";
+import { useAuth } from "../context/authContext";
 
-// --- MOCK DATA ---
-const ACTIVE_ORDERS = [
-  { id: "1023", items: "2x Jollof Rice, 1x Chicken", price: 5000, status: "PENDING", time: "2 mins ago", customer: "John Doe" },
-  { id: "1022", items: "1x Fried Rice, 1x Coke", price: 2500, status: "PREPARING", time: "15 mins ago", customer: "Sarah S." },
-];
-
-const HISTORY_ORDERS = [
-  { id: "1020", items: "3x Beef Burger", price: 9000, status: "DELIVERED", time: "Yesterday", customer: "Mike T." },
-  { id: "1019", items: "1x Shawarma", price: 1500, status: "CANCELLED", time: "Yesterday", customer: "Paul A." },
-  { id: "1018", items: "5x Pasta", price: 12500, status: "DELIVERED", time: "2 days ago", customer: "Anna B." },
-];
+// --- API & TYPES ---
+import { useGetVendorOrders, useUpdateOrderStatus } from "../services/order/order.queries";
+import { Order, OrderStatus } from "../types/order.types";
 
 export default function DashboardScreen() {
   const { colors, isDark } = useTheme();
-  // Added 'HISTORY' to the state type
-  const [activeTab, setActiveTab] = useState<"PENDING" | "PREPARING" | "HISTORY">("PENDING");
+  const { user } = useAuth();
+  const restaurantId = user?.restaurant?.id;
 
-  // Logic to switch between Active and History datasets
-  const getDisplayData = () => {
-    if (activeTab === "HISTORY") return HISTORY_ORDERS;
-    return ACTIVE_ORDERS.filter((o) => o.status === activeTab);
+  // --- 1. DATA FETCHING ---
+  const { 
+    data: ordersResponse, 
+    isLoading, 
+    refetch,
+    isRefetching 
+  } = useGetVendorOrders(restaurantId || "");
+
+  const { mutate: updateStatus, isPending: isUpdating } = useUpdateOrderStatus();
+
+  // --- 2. UI STATE ---
+  const [activeTab, setActiveTab] = useState<"PENDING" | "PREPARING" | "HISTORY">("PENDING");
+  
+  const orders = ordersResponse?.data || [];
+
+  // --- 3. FILTER LOGIC ---
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => {
+      if (activeTab === "PENDING") {
+        return o.status === "PENDING";
+      }
+      if (activeTab === "PREPARING") {
+        // Kitchen only shows what is currently being cooked
+        return o.status === "PREPARING";
+      }
+      if (activeTab === "HISTORY") {
+        // Once a rider is called (OUT_FOR_DELIVERY), it moves to history
+        return ["DELIVERED", "CANCELLED", "REFUNDED", "OUT_FOR_DELIVERY"].includes(o.status);
+      }
+      return false;
+    });
+  }, [orders, activeTab]);
+
+  // --- 4. HANDLERS ---
+  const handleStatusUpdate = (orderId: string, newStatus: OrderStatus) => {
+    updateStatus({ orderId, status: newStatus });
   };
 
-  const filteredOrders = getDisplayData();
+  const formatItems = (items: Order['items']) => {
+    return items.map(i => `${i.quantity}x ${i.menuItemName}`).join(", ");
+  };
 
-  const renderOrder = ({ item }: any) => {
-    // Helper to style the status badge for History items
-    const getStatusColor = (status: string) => {
-      if (status === 'DELIVERED') return colors.success;
-      if (status === 'CANCELLED') return colors.danger;
-      return colors.textLight;
-    };
+  // --- 5. RENDER COMPONENTS ---
+
+  const renderHeader = () => (
+    <View style={[styles.headerContainer, { backgroundColor: colors.surface }]}>
+      {/* Top Row */}
+      <View style={styles.headerTop}>
+        <View>
+          <Text style={[styles.headerSubtitle, { color: colors.textLight }]}>
+            {new Date().toDateString()}
+          </Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            {user?.restaurant?.name || "My Kitchen"}
+          </Text>
+        </View>
+        <View style={[styles.statusPill, { backgroundColor: colors.success + '20' }]}>
+          <View style={[styles.statusDot, { backgroundColor: colors.success }]} />
+          <Text style={[styles.statusText, { color: colors.success }]}>Online</Text>
+        </View>
+      </View>
+
+      {/* Stats Row */}
+      <View style={styles.statsRow}>
+        <View style={styles.statItem}>
+          <Text style={[styles.statValue, { color: colors.primary }]}>
+            {orders.filter(o => o.status === 'PENDING').length}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textLight }]}>New</Text>
+        </View>
+        <View style={[styles.verticalLine, { backgroundColor: colors.border }]} />
+        <View style={styles.statItem}>
+          <Text style={[styles.statValue, { color: colors.text }]}>
+            {orders.filter(o => o.status === 'PREPARING').length}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textLight }]}>Cooking</Text>
+        </View>
+      </View>
+    </View>
+  );
+
+const renderOrder = ({ item }: { item: Order }) => {
+    // Status Badge Color Logic
+    let badgeColor = colors.textLight;
+    let badgeBg = isDark ? '#374151' : '#F3F4F6';
+    
+    if (item.status === 'PENDING') { badgeColor = colors.primary; badgeBg = colors.primary + '15'; }
+    if (item.status === 'PREPARING') { badgeColor = '#F59E0B'; badgeBg = '#F59E0B15'; } // Amber
+    if (item.status === 'OUT_FOR_DELIVERY') { badgeColor = colors.success; badgeBg = colors.success + '15'; }
+    if (item.status === 'CANCELLED') { badgeColor = colors.danger; badgeBg = colors.danger + '15'; }
 
     return (
-      <View style={[styles.card, { backgroundColor: colors.surface }]}>
+      <View style={[styles.card, { backgroundColor: colors.surface, shadowColor: isDark ? "#000" : "#ccc" }]}>
+        
+        {/* Card Header */}
         <View style={styles.cardHeader}>
-          <View>
-            <Text style={[styles.orderId, { color: colors.text }]}>Order #{item.id}</Text>
-            <Text style={[styles.customerName, { color: colors.textLight }]}>{item.customer}</Text>
+          <View style={styles.idContainer}>
+            <Text style={[styles.orderId, { color: colors.text }]}>
+              #{item.reference ? item.reference.slice(0, 4).toUpperCase() : item.id.slice(0, 4)}
+            </Text>
+            <Text style={[styles.customerName, { color: colors.textLight }]}>
+              • {item.customer?.name || "Guest"}
+            </Text>
           </View>
           
-          {/* DIFFERENT BADGE FOR HISTORY */}
-          {activeTab === 'HISTORY' ? (
-            <View style={[styles.statusBadge, { backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : '#F3F4F6' }]}>
-              <Text style={{ color: getStatusColor(item.status), fontWeight: 'bold', fontSize: 12 }}>
-                {item.status}
-              </Text>
-            </View>
-          ) : (
-            <View style={[styles.timeBadge, { backgroundColor: isDark ? '#374151' : '#FFF5F5' }]}>
-              <Ionicons name="time-outline" size={14} color={colors.primary} />
-              <Text style={[styles.timeText, { color: colors.primary }]}>{item.time}</Text>
-            </View>
-          )}
+          <View style={[styles.statusBadge, { backgroundColor: badgeBg }]}>
+            <Text style={[styles.statusTextBadge, { color: badgeColor }]}>
+              {item.status.replace(/_/g, " ")}
+            </Text>
+          </View>
         </View>
 
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <Text style={[styles.items, { color: colors.text }]}>{item.items}</Text>
-        <Text style={[styles.price, { color: colors.primary }]}>₦{item.price.toLocaleString()}</Text>
 
-        {/* ACTION BUTTONS (Only for Active Orders) */}
+        {/* 1. Order Items (Now on top) */}
+        <Text style={[styles.items, { color: colors.text, marginBottom: item.deliveryNotes ? 12 : 4 }]}>
+          {formatItems(item.items)}
+        </Text>
+
+        {/* 2. ✅ Special Instructions (Now below items) */}
+        {item.deliveryNotes && (
+          <View style={{ 
+            marginTop: 4,
+            marginBottom: 12,
+            padding: 12, 
+            backgroundColor: isDark ? 'rgba(245, 158, 11, 0.1)' : '#FFFBEB', // Amber tint
+            borderWidth: 1,
+            borderColor: isDark ? '#B45309' : '#FCD34D', // Amber border
+            borderRadius: 8,
+            borderStyle: 'dashed', // Dashed line makes it look like a "Note"
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+              <Ionicons name="clipboard-outline" size={16} color={isDark ? '#FCD34D' : '#D97706'} style={{ marginRight: 6 }} />
+              <Text style={{ 
+                fontSize: 11, 
+                fontWeight: '800', 
+                color: isDark ? '#FCD34D' : '#D97706', 
+                textTransform: 'uppercase',
+                letterSpacing: 0.5
+              }}>
+                Special Instruction
+              </Text>
+            </View>
+            <Text style={{ 
+              fontSize: 14, 
+              color: isDark ? '#E5E7EB' : '#4B5563', 
+              lineHeight: 20,
+              fontStyle: 'italic'
+            }}>
+              &quot;{item.deliveryNotes}&quot;
+            </Text>
+          </View>
+        )}
+        
+        {/* Price Row */}
+        <View style={styles.priceRow}>
+           <Text style={[styles.priceLabel, { color: colors.textLight }]}>Total:</Text>
+           <Text style={[styles.price, { color: colors.primary }]}>
+             ₦{item.totalAmount.toLocaleString()}
+           </Text>
+        </View>
+
+        {/* Action Buttons */}
         {activeTab !== 'HISTORY' && (
           <View style={styles.actionRow}>
             {item.status === "PENDING" ? (
+              // NEW ORDERS
               <>
-                <TouchableOpacity style={[styles.btn, styles.btnReject, { borderColor: isDark ? '#EF4444' : '#FECACA', backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : '#FEF2F2' }]}>
-                  <Text style={[styles.btnRejectText, { color: colors.danger }]}>Reject</Text>
+                <TouchableOpacity 
+                  disabled={isUpdating}
+                  style={[styles.btn, styles.btnOutline, { borderColor: colors.danger }]}
+                  onPress={() => handleStatusUpdate(item.id, "CANCELLED")}
+                >
+                  <Text style={[styles.btnText, { color: colors.danger }]}>Reject</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.btn, { backgroundColor: colors.success }]}>
-                  <Text style={styles.btnAcceptText}>Accept Order</Text>
+                
+                <TouchableOpacity 
+                  disabled={isUpdating}
+                  style={[styles.btn, { backgroundColor: colors.success }]}
+                  onPress={() => handleStatusUpdate(item.id, "PREPARING")}
+                >
+                  <Text style={[styles.btnText, { color: 'white' }]}>Accept Order</Text>
                 </TouchableOpacity>
               </>
             ) : (
-              <TouchableOpacity style={[styles.btn, { backgroundColor: colors.primary }]}>
+              // PREPARING ORDERS
+              <TouchableOpacity 
+                style={[styles.btn, { backgroundColor: colors.primary }]}
+                disabled={isUpdating} 
+                onPress={() => handleStatusUpdate(item.id, "OUT_FOR_DELIVERY")}
+              >
                 <Ionicons name="bicycle" size={18} color="white" style={{ marginRight: 8 }} />
-                <Text style={styles.btnReadyText}>Call Rider (Ready)</Text>
+                <Text style={[styles.btnText, { color: "white" }]}>
+                  Call Rider
+                </Text>
               </TouchableOpacity>
             )}
           </View>
@@ -95,72 +226,106 @@ export default function DashboardScreen() {
     );
   };
 
+  // --- MAIN RENDER ---
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Header title="Mama's Kitchen" subtitle="Good Afternoon," showNotification={true} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+      
+      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.surface, zIndex: 10 }}>
+        {renderHeader()}
+      </SafeAreaView>
 
-      {/* --- 3 TABS LAYOUT --- */}
-      <View style={[styles.tabContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        {/* Tab 1: New */}
-        <TouchableOpacity style={styles.tab} onPress={() => setActiveTab("PENDING")}>
-          <Text style={[styles.tabText, activeTab === "PENDING" ? { color: colors.primary, fontWeight: 'bold' } : { color: colors.textLight }]}>New</Text>
-          {activeTab === "PENDING" && <View style={[styles.activeIndicator, { backgroundColor: colors.primary }]} />}
-        </TouchableOpacity>
-        
-        {/* Tab 2: Kitchen */}
-        <TouchableOpacity style={styles.tab} onPress={() => setActiveTab("PREPARING")}>
-          <Text style={[styles.tabText, activeTab === "PREPARING" ? { color: colors.primary, fontWeight: 'bold' } : { color: colors.textLight }]}>Kitchen</Text>
-          {activeTab === "PREPARING" && <View style={[styles.activeIndicator, { backgroundColor: colors.primary }]} />}
-        </TouchableOpacity>
-
-        {/* Tab 3: History */}
-        <TouchableOpacity style={styles.tab} onPress={() => setActiveTab("HISTORY")}>
-          <Text style={[styles.tabText, activeTab === "HISTORY" ? { color: colors.primary, fontWeight: 'bold' } : { color: colors.textLight }]}>History</Text>
-          {activeTab === "HISTORY" && <View style={[styles.activeIndicator, { backgroundColor: colors.primary }]} />}
-        </TouchableOpacity>
+      <View style={[styles.tabContainer, { backgroundColor: colors.surface }]}>
+        {['PENDING', 'PREPARING', 'HISTORY'].map((tab) => (
+          <TouchableOpacity 
+            key={tab} 
+            onPress={() => setActiveTab(tab as any)}
+            style={[
+              styles.tabItem, 
+              activeTab === tab && { borderBottomColor: colors.primary, borderBottomWidth: 3 }
+            ]}
+          >
+            <Text style={[
+              styles.tabText, 
+              { color: activeTab === tab ? colors.primary : colors.textLight }
+            ]}>
+              {tab === 'PENDING' ? 'New Orders' : tab === 'PREPARING' ? 'Kitchen' : 'History'}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      <FlatList
-        data={filteredOrders}
-        renderItem={renderOrder}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="documents-outline" size={60} color={colors.textLight} />
-            <Text style={[styles.emptyText, { color: colors.textLight }]}>
-              {activeTab === 'HISTORY' ? "No past orders yet." : "No active orders."}
-            </Text>
-          </View>
-        }
-      />
+      {isLoading && !orders.length ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredOrders}
+          renderItem={renderOrder}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl 
+              refreshing={isRefetching} 
+              onRefresh={refetch} 
+              tintColor={colors.primary} 
+              colors={[colors.primary]} 
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <View style={[styles.emptyIconBg, { backgroundColor: colors.primary + '15' }]}>
+                <Ionicons name="receipt-outline" size={40} color={colors.primary} />
+              </View>
+              <Text style={[styles.emptyText, { color: colors.textLight }]}>
+                {activeTab === 'HISTORY' ? "No past orders yet" : "All caught up!"}
+              </Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  tabContainer: { flexDirection: "row", borderBottomWidth: 1 },
-  tab: { flex: 1, paddingVertical: 16, alignItems: "center" },
-  tabText: { fontWeight: "600", fontSize: 14 },
-  activeIndicator: { position: "absolute", bottom: 0, height: 3, width: "60%", borderRadius: 3 },
-  listContent: { padding: SPACING.m },
-  card: { borderRadius: 16, padding: SPACING.m, marginBottom: SPACING.m, ...SHADOWS.small },
-  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-  orderId: { fontSize: 16, fontWeight: "800" },
-  customerName: { fontSize: 14, marginTop: 2 },
-  timeBadge: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  headerContainer: { paddingHorizontal: 20, paddingBottom: 15, paddingTop: 10 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  headerSubtitle: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', marginBottom: 4 },
+  headerTitle: { fontSize: 24, fontWeight: '800' },
+  statusPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
+  statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
+  statusText: { fontSize: 12, fontWeight: '700' },
+  statsRow: { flexDirection: 'row', alignItems: 'center' },
+  statItem: { flexDirection: 'row', alignItems: 'baseline' },
+  statValue: { fontSize: 20, fontWeight: '800', marginRight: 6 },
+  statLabel: { fontSize: 14, fontWeight: '500' },
+  verticalLine: { width: 1, height: 20, marginHorizontal: 20 },
+  tabContainer: { flexDirection: 'row', paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+  tabItem: { flex: 1, alignItems: 'center', paddingVertical: 14 },
+  tabText: { fontSize: 14, fontWeight: '700' },
+  listContent: { padding: 20 },
+  card: { borderRadius: 16, padding: 16, marginBottom: 16, elevation: 2, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  idContainer: { flexDirection: 'row', alignItems: 'center' },
+  orderId: { fontSize: 16, fontWeight: '800' },
+  customerName: { fontSize: 14, marginLeft: 6 },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  timeText: { fontSize: 12, fontWeight: "600", marginLeft: 4 },
-  divider: { height: 1, marginVertical: SPACING.m },
-  items: { fontSize: 16, fontWeight: "500", marginBottom: SPACING.s },
-  price: { fontSize: 18, fontWeight: "bold", marginBottom: SPACING.m },
-  actionRow: { flexDirection: "row", gap: 12 },
-  btn: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: "center", justifyContent: "center", flexDirection: "row" },
-  btnReject: { borderWidth: 1 },
-  btnRejectText: { fontWeight: "700" },
-  btnAcceptText: { color: "white", fontWeight: "700" },
-  btnReadyText: { color: "white", fontWeight: "700" },
-  emptyState: { alignItems: "center", marginTop: 100 },
-  emptyText: { marginTop: 10, fontSize: 16 },
+  statusTextBadge: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
+  divider: { height: 1, width: '100%', marginBottom: 12 },
+  items: { fontSize: 15, fontWeight: '500', lineHeight: 22, marginBottom: 12 },
+  priceRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'baseline', marginBottom: 16 },
+  priceLabel: { fontSize: 13, marginRight: 6 },
+  price: { fontSize: 18, fontWeight: '800' },
+  actionRow: { flexDirection: 'row', gap: 12 },
+  btn: { flex: 1, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', flexDirection: 'row' },
+  btnOutline: { borderWidth: 1, backgroundColor: 'transparent' },
+  btnText: { fontSize: 14, fontWeight: '700' },
+  emptyState: { alignItems: 'center', marginTop: 80 },
+  emptyIconBg: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  emptyText: { fontSize: 16, fontWeight: '500' },
 });
