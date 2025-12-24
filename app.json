@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "vendor-app",
-    "slug": "vendor-app",
+    "name": "ChowEazy Vendor",
+    "slug": "choweazy-vendor",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
