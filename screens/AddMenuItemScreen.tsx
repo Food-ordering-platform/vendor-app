@@ -1,5 +1,4 @@
-// screens/AddMenuItemScreen.tsx
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, Image, 
   StyleSheet, ScrollView, Alert, ActivityIndicator 
@@ -7,16 +6,21 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING } from '../constants/theme';
+import { useAddMenuItem } from '../services/restaurant/restaurant.queries';
 
-export default function AddMenuItemScreen({ navigation }: any) {
+export default function AddMenuItemScreen({ navigation, route }: any) {
+  // 1. Get restaurantId passed from MenuScreen
+  const { restaurantId } = route.params || {};
+
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [price, setPrice] = useState('');
-  const [category, setCategory] = useState(''); // Text input for "Rice", "Drinks"
+  const [category, setCategory] = useState('');
   const [image, setImage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  // 1. Pick Image Logic
+  // 2. Use the Mutation Hook
+  const { mutate, isPending } = useAddMenuItem();
+
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -30,25 +34,36 @@ export default function AddMenuItemScreen({ navigation }: any) {
     }
   };
 
-  // 2. Submit Logic (Mocked API Call)
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!name || !price || !category || !image) {
       Alert.alert('Error', 'Please fill all fields and add an image');
       return;
     }
 
-    setLoading(true);
+    if (!restaurantId) {
+      Alert.alert('Error', 'Restaurant ID missing. Please restart.');
+      return;
+    }
 
-    // TODO: Replace with your actual axios call
-    // const formData = new FormData();
-    // formData.append('name', name); ...
-    // await axios.post(...)
-
-    setTimeout(() => {
-      setLoading(false);
-      Alert.alert('Success', 'Menu Item Added!');
-      navigation.goBack();
-    }, 1500);
+    // 3. Trigger Mutation
+    mutate(
+      {
+        restaurantId,
+        data: {
+          name,
+          description: desc,
+          price,
+          categoryName: category,
+          imageUri: image,
+        },
+      },
+      {
+        onSuccess: () => {
+          Alert.alert('Success', 'Menu Item Added!');
+          navigation.goBack();
+        },
+      }
+    );
   };
 
   return (
@@ -107,11 +122,11 @@ export default function AddMenuItemScreen({ navigation }: any) {
         </View>
 
         <TouchableOpacity 
-          style={[styles.button, loading && { opacity: 0.7 }]} 
+          style={[styles.button, isPending && { opacity: 0.7 }]} 
           onPress={handleSubmit}
-          disabled={loading}
+          disabled={isPending}
         >
-          {loading ? (
+          {isPending ? (
             <ActivityIndicator color="#FFF" />
           ) : (
             <Text style={styles.buttonText}>Add to Menu</Text>

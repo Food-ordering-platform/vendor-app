@@ -47,7 +47,7 @@ export default function SplashScreen({ navigation }: any) {
     }, 10000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, );
 
   return (
     <View style={styles.container}>

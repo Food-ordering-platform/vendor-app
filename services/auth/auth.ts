@@ -17,14 +17,24 @@ export const authService = {
   // 1. Login
   login: async (data: LoginData): Promise<AuthResponse> => {
     const response = await api.post('/auth/login', { ...data, role: 'VENDOR' });
-    return response.data;
+    if(response.data.result){
+      return response.data.result
+    }
+    return response.data
   },
 
   // 2. Register
-  register: async (data: RegisterData): Promise<AuthResponse> => {
-    const response = await api.post('/auth/register', { ...data, role: 'VENDOR' });
-    return response.data;
-  },
+  register:  async (
+  data: RegisterData
+): Promise<AuthResponse> => {
+  try {
+    const response = await api.post<AuthResponse>("/auth/register", data);
+    return response.data; // return only the data
+  } catch (error: any) {
+    console.error("Register error:", error.response?.data || error.message);
+    throw error;
+  }
+},
 
   // 3. Verify OTP (For Email Verification)
   verifyOtp: async (data: VerifyOtpPayload): Promise<VerifyOtpResponse> => {

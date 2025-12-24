@@ -7,6 +7,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
+import { useRegister } from '@/services/auth/auth.queries';
 
 export default function SignupScreen({ navigation }: any) {
   const [name, setName] = useState('');
@@ -14,11 +15,23 @@ export default function SignupScreen({ navigation }: any) {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
 
+  const {mutate:register, isPending} = useRegister()
+
   const handleSignup = () => {
-    // 1. TODO: Call Register API
-    // 2. On Success:
-    // Navigate to Profile with a param indicating this is "Onboarding Mode"
-    navigation.replace('Profile', { isOnboarding: true });
+   if(!name || !email || !phone ||!password){
+    alert("Please fill all fields")
+    return;
+   }
+   register({
+    name, email, password, phone, role:'VENDOR'},{
+      onSuccess:(data) => {
+        //Navigate to verifyOTP passing token and email
+        navigation.navigate('VerifyOtp', {
+          token:data.token,
+          email:email
+        })
+      }
+    })
   };
 
   return (

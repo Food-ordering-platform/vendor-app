@@ -5,14 +5,14 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../context/themeContext'; // Dynamic Theme
+import { useTheme } from '../context/themeContext'; 
 import { SPACING } from '../constants/theme';
 
 const { width } = Dimensions.get('window');
 
 const SLIDES = [
   { id: '1', title: 'Manage Your Menu', description: 'Easily add new dishes, update prices, and control availability instantly.', icon: 'restaurant' },
-  { id: '2', title: 'Live Order Command', description: 'Receive real-time order alerts. Accept, cook, and dispatch riders with one tap.', icon: 'notifications' },
+  { id: '2', title: 'Live Order', description: 'Receive real-time order alerts. Accept, cook, and dispatch riders with one tap.', icon: 'notifications' },
   { id: '3', title: 'Track Your Growth', description: 'Monitor your daily earnings and withdraw your funds whenever you need.', icon: 'wallet' },
 ];
 
@@ -57,7 +57,6 @@ export default function OnboardingScreen({ navigation }: any) {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
       
-      {/* Spacer for top area since Skip is gone */}
       <View style={{ height: 20 }} />
 
       <View style={{ flex: 3 }}>
@@ -66,8 +65,10 @@ export default function OnboardingScreen({ navigation }: any) {
           renderItem={({ item }) => (
             <View style={styles.slide}>
               <View style={styles.iconContainer}>
+                {/* [FIX] Reduced circle size (0.6 instead of 0.75) */}
                 <View style={[styles.circleBackground, { backgroundColor: isDark ? '#374151' : '#FFE4E6' }]}>
-                  <Ionicons name={item.icon as any} size={100} color={colors.primary} />
+                  {/* [FIX] Reduced icon size */}
+                  <Ionicons name={item.icon as any} size={80} color={colors.primary} />
                 </View>
               </View>
               
@@ -103,25 +104,25 @@ export default function OnboardingScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, paddingTop: Platform.OS === 'android' ? 30 : 0 },
   slide: { width: width, alignItems: 'center', paddingHorizontal: SPACING.l },
-  // Fixed Layout to prevent cutting
   iconContainer: { 
-    flex: 0.65, 
+    flex: 0.6, 
     justifyContent: 'center', 
     alignItems: 'center', 
     width: '100%', 
     paddingTop: 20 
   },
+  // [FIX] Adjusted dimensions
   circleBackground: {
-    width: width * 0.75, 
-    height: width * 0.75,
-    borderRadius: (width * 0.75) / 2,
+    width: width * 0.6, 
+    height: width * 0.6,
+    borderRadius: (width * 0.6) / 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  textContainer: { flex: 0.35, alignItems: 'center', justifyContent: 'flex-start', paddingTop: SPACING.m },
-  title: { fontSize: 28, fontWeight: '800', marginBottom: SPACING.m, textAlign: 'center' },
-  description: { fontSize: 16, textAlign: 'center', lineHeight: 24, paddingHorizontal: SPACING.m },
-  footer: { flex: 1, justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.l, paddingBottom: SPACING.xl * 1.5 },
+  textContainer: { flex: 0.4, alignItems: 'center', justifyContent: 'flex-start', paddingTop: SPACING.s },
+  title: { fontSize: 26, fontWeight: '800', marginBottom: SPACING.s, textAlign: 'center' },
+  description: { fontSize: 15, textAlign: 'center', lineHeight: 22, paddingHorizontal: SPACING.m },
+  footer: { flex: 1, justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.l, paddingBottom: SPACING.xl },
   dot: { height: 10, borderRadius: 5, marginHorizontal: 8 },
   button: { flexDirection: 'row', paddingVertical: 16, paddingHorizontal: 32, borderRadius: 30, alignItems: 'center', justifyContent: 'center', width: '80%', elevation: 5 },
   buttonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
