@@ -74,3 +74,33 @@ export const useAddMenuItem = () => {
     }
   });
 };
+
+export const useToggleMenuItem = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (itemId: string) => restaurantService.toggleAvailability(itemId),
+    onSuccess: (_, itemId) => {
+      // Invalidate queries to refresh the list automatically
+      queryClient.invalidateQueries({ queryKey: ['menuItems'] });
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error.message || "Failed to update status");
+    }
+  });
+};
+
+export const useDeleteMenuItem = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (itemId: string) => restaurantService.deleteMenuItem(itemId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['menuItems'] });
+      Alert.alert("Success", "Item deleted successfully");
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error.message || "Failed to delete item");
+    }
+  });
+};

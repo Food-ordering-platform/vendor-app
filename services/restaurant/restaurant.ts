@@ -102,5 +102,18 @@ export const restaurantService = {
     });
     return response.data;
   },
+
+  //Toggle Menu items Availability
+  toggleAvailability: async (itemId: string) => {
+    //Match Backend route: 
+    const response = await api.patch(`/restaurant/menu/${itemId}/toggle`)
+    return response.data
+  },
+
+  //Delete Menu Item
+  deleteMenuItem: async(itemId: string) => {
+    const response = await api.delete(`/restaurant/menu/${itemId}`);
+    return response.data
+  }
 };
 
