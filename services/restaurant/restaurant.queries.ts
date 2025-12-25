@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { restaurantService } from './restaurant';
 import { Alert } from 'react-native';
-import { CreateRestaurantPayload, UpdateRestaurantPayload } from "../../types/restaurant.types";
+import { CreateRestaurantPayload, RestaurantEarningsResponse, UpdateRestaurantPayload } from "../../types/restaurant.types";
 
 export const useCreateRestaurant = () => {
   const queryClient = useQueryClient();
@@ -104,3 +104,11 @@ export const useDeleteMenuItem = () => {
     }
   });
 };
+
+export const useGetEarnings = (restaurantId: string) => {
+  return useQuery<RestaurantEarningsResponse>({
+    queryKey:['earnings', restaurantId],
+    queryFn: () => restaurantService.getEarnings(restaurantId),
+    enabled: !!restaurantId
+  })
+}

@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../context/themeContext";
 import { useAuth } from "../context/authContext";
+import { useOrderNotification } from "../hooks/useOrderNotification";
 
 // --- API & TYPES ---
 import { useGetVendorOrders, useUpdateOrderStatus } from "../services/order/order.queries";
@@ -21,7 +22,9 @@ import { Order, OrderStatus } from "../types/order.types";
 export default function DashboardScreen() {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
+   useOrderNotification()
   const restaurantId = user?.restaurant?.id;
+ 
 
   // --- 1. DATA FETCHING ---
   const { 

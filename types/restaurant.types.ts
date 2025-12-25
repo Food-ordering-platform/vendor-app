@@ -32,3 +32,14 @@ export interface RestaurantResponse{
     message?:string
     data:Restaurant
 }
+
+export interface RestaurantEarnings{
+    availableBalance: number;
+    pendingBalance: number;
+    currency: string
+}
+
+export interface RestaurantEarningsResponse{
+    success:boolean;
+    data: RestaurantEarnings;
+}

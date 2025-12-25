@@ -1,6 +1,7 @@
 import api from "../axios";
 import {
   CreateRestaurantPayload,
+  RestaurantEarningsResponse,
   UpdateRestaurantPayload,
 } from "../../types/restaurant.types";
 import { Platform } from "react-native";
@@ -22,7 +23,10 @@ const createFormData = (payload: CreateRestaurantPayload) => {
 
     // @ts-ignore: React Native FormData
     formData.append("image", {
-      uri: Platform.OS === "android" ? payload.imageUri : payload.imageUri.replace("file://", ""),
+      uri:
+        Platform.OS === "android"
+          ? payload.imageUri
+          : payload.imageUri.replace("file://", ""),
       name: filename || "upload.jpg",
       type,
     });
@@ -36,7 +40,7 @@ const createMenuFormData = (payload: any) => {
   formData.append("name", payload.name);
   formData.append("description", payload.description);
   formData.append("price", String(payload.price));
-  formData.append("categoryName", payload.categoryName); 
+  formData.append("categoryName", payload.categoryName);
 
   if (payload.imageUri) {
     const filename = payload.imageUri.split("/").pop();
@@ -45,7 +49,10 @@ const createMenuFormData = (payload: any) => {
 
     // @ts-ignore
     formData.append("image", {
-      uri: Platform.OS === "android" ? payload.imageUri : payload.imageUri.replace("file://", ""),
+      uri:
+        Platform.OS === "android"
+          ? payload.imageUri
+          : payload.imageUri.replace("file://", ""),
       name: filename || "food-item.jpg",
       type,
     });
@@ -57,9 +64,9 @@ export const restaurantService = {
   // 1. Create Restaurant
   createRestaurant: async (data: CreateRestaurantPayload) => {
     const formData = createFormData(data);
-    const response = await api.post('/restaurant', formData, {
-      headers: { Accept: 'application/json' },
-      transformRequest: (data) => data, 
+    const response = await api.post("/restaurant", formData, {
+      headers: { Accept: "application/json" },
+      transformRequest: (data) => data,
     });
     return response.data;
   },
@@ -69,7 +76,7 @@ export const restaurantService = {
     const formData = createFormData(data);
     const response = await api.post(`/restaurant/${id}`, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data'
+        "Content-Type": "multipart/form-data",
       },
       transformRequest: (data) => data,
     });
@@ -83,37 +90,53 @@ export const restaurantService = {
   },
 
   // 4. Add Menu Item (Ensure this has transformRequest!)
-  addMenuItem: async (restaurantId: string, data: { 
-    name: string; 
-    description: string; 
-    price: string; 
-    categoryName: string; 
-    imageUri: string | null 
-  }) => {
+  addMenuItem: async (
+    restaurantId: string,
+    data: {
+      name: string;
+      description: string;
+      price: string;
+      categoryName: string;
+      imageUri: string | null;
+    }
+  ) => {
     // ⚠️ MUST use the new helper
     const formData = createMenuFormData(data);
 
-    const response = await api.post(`/restaurant/${restaurantId}/menu`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      },
-      // ⚠️ This is CRITICAL for FormData to work
-      transformRequest: (data) => data, 
-    });
+    const response = await api.post(
+      `/restaurant/${restaurantId}/menu`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        // ⚠️ This is CRITICAL for FormData to work
+        transformRequest: (data) => data,
+      }
+    );
     return response.data;
   },
 
   //Toggle Menu items Availability
   toggleAvailability: async (itemId: string) => {
-    //Match Backend route: 
-    const response = await api.patch(`/restaurant/menu/${itemId}/toggle`)
-    return response.data
+    //Match Backend route:
+    const response = await api.patch(`/restaurant/menu/${itemId}/toggle`);
+    return response.data;
   },
 
   //Delete Menu Item
-  deleteMenuItem: async(itemId: string) => {
+  deleteMenuItem: async (itemId: string) => {
     const response = await api.delete(`/restaurant/menu/${itemId}`);
-    return response.data
-  }
-};
+    return response.data;
+  },
 
+  //getEarnings
+  getEarnings: async (
+    restaurantId: string
+  ): Promise<RestaurantEarningsResponse> => {
+    const response = await api.get<RestaurantEarningsResponse>(
+      `/restaurant/${restaurantId}/earnings`
+    );
+    return response.data;
+  },
+};

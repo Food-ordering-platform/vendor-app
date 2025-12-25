@@ -8,7 +8,7 @@ export const useGetVendorOrders = (restaurantId: string) => {
     queryKey: ['vendorOrders', restaurantId],
     queryFn: () => orderService.getVendorOrders(restaurantId),
     enabled: !!restaurantId,
-    refetchInterval: 10000,
+    // refetchInterval: 10000,
   });
 };
 

@@ -1,96 +1,147 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
-import { COLORS } from '../constants/theme';
-import { useQuery } from '@tanstack/react-query';
-import api from '../services/axios'; // Your axios instance
-import { useAuth } from '../context/authContext';
 import { Ionicons } from '@expo/vector-icons';
-
-// Fetch Function
-const fetchEarnings = async (restaurantId: string) => {
-  const res = await api.get(`/restaurants/${restaurantId}/earnings`);
-  return res.data;
-};
+import { useAuth } from '../context/authContext';
+import { useGetEarnings } from '../services/restaurant/restaurant.queries';
+import { useTheme } from '../context/themeContext'; // 👈 Theme Hook
+import HeaderTemp from '../components/HeaderTemp';   // 👈 Consistent Header
+import { SPACING, SHADOWS } from '../constants/theme'; // 👈 Theme Constants
 
 export default function EarningsScreen() {
   const { user } = useAuth();
+  const { colors, isDark } = useTheme(); // Get dynamic colors
   const restaurantId = user?.restaurant?.id;
 
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ['earnings', restaurantId],
-    queryFn: () => fetchEarnings(restaurantId),
-    enabled: !!restaurantId
-  });
-
-  const available = data?.availableBalance || 0;
-  const pending = data?.pendingBalance || 0;
+  const { data, isLoading, refetch } = useGetEarnings(restaurantId || "");
+  const earnings = data?.data;
+  
+  const available = earnings?.availableBalance || 0;
+  const pending = earnings?.pendingBalance || 0;
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} />}
-    >
-      <View style={styles.header}>
-        <Text style={styles.title}>Earnings</Text>
-      </View>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* 1. Use the App's Standard Header */}
+      <HeaderTemp title="Earnings" subtitle="Financial Overview" />
 
-      {/* --- AVAILABLE BALANCE CARD (Green) --- */}
-      <View style={[styles.card, styles.availableCard]}>
-        <View>
-          <Text style={styles.cardLabelLight}>Withdrawable Balance</Text>
-          <Text style={styles.amountLight}>₦{available.toLocaleString()}</Text>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl 
+            refreshing={isLoading} 
+            onRefresh={refetch} 
+            tintColor={colors.primary} // Red spinner
+          />
+        }
+      >
+        {/* --- AVAILABLE BALANCE CARD (Primary Red Brand Color) --- */}
+        <View style={[
+          styles.card, 
+          { backgroundColor: colors.primary } // Uses your 'RedPrimary'
+        ]}>
+          <View>
+            <Text style={[styles.cardLabel, { color: 'rgba(255,255,255,0.8)' }]}>
+              Withdrawable Balance
+            </Text>
+            <Text style={[styles.amount, { color: colors.white }]}>
+              ₦{available.toLocaleString()}
+            </Text>
+          </View>
+          <View style={[styles.iconCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+            <Ionicons name="wallet" size={24} color={colors.white} />
+          </View>
         </View>
-        <Ionicons name="wallet" size={32} color="#fff" />
-      </View>
 
-      {/* --- PENDING BALANCE CARD (Orange) --- */}
-      <View style={[styles.card, styles.pendingCard]}>
-        <View>
-          <Text style={styles.cardLabelDark}>Pending Clearance</Text>
-          <Text style={styles.amountDark}>₦{pending.toLocaleString()}</Text>
-          <Text style={styles.note}>
-            *Funds move to withdrawable after delivery
+        {/* --- PENDING BALANCE CARD (Secondary Amber Theme) --- */}
+        <View style={[
+          styles.card, 
+          { 
+            backgroundColor: colors.surface, 
+            borderColor: colors.secondary, // Amber Border
+            borderWidth: 1 
+          }
+        ]}>
+          <View>
+            <Text style={[styles.cardLabel, { color: colors.textLight }]}>
+              Pending Clearance
+            </Text>
+            <Text style={[styles.amount, { color: colors.text }]}>
+              ₦{pending.toLocaleString()}
+            </Text>
+            <Text style={[styles.note, { color: colors.secondary }]}>
+              *Funds move to withdrawable after delivery
+            </Text>
+          </View>
+          <View style={[
+            styles.iconCircle, 
+            { backgroundColor: isDark ? 'rgba(255, 193, 7, 0.15)' : '#FFF8E1' } // Light Amber bg
+          ]}>
+            <Ionicons name="time" size={24} color={colors.secondary} />
+          </View>
+        </View>
+
+        {/* --- TRANSACTION HISTORY --- */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Transaction History
           </Text>
+          
+          {/* Empty State consistent with theme */}
+          <View style={[styles.emptyState, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={{ color: colors.textLight }}>No withdrawals yet.</Text>
+          </View>
         </View>
-        <Ionicons name="time" size={32} color={COLORS.primary} />
-      </View>
 
-      <View style={styles.historySection}>
-        <Text style={styles.sectionTitle}>Transaction History</Text>
-        <Text style={{ color: '#888', marginTop: 10 }}>No withdrawals yet.</Text>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa', padding: 20 },
-  header: { marginTop: 40, marginBottom: 20 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#333' },
+  container: { flex: 1 },
+  scrollContent: { padding: SPACING.l },
   
   card: {
     borderRadius: 16,
-    padding: 24,
-    marginBottom: 15,
+    padding: SPACING.l,
+    marginBottom: SPACING.m,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    ...SHADOWS.medium, // Use your app's shadow
   },
-  availableCard: { backgroundColor: '#10B981' }, // Green
-  pendingCard: { backgroundColor: '#FFF3CD', borderWidth: 1, borderColor: '#FFC107' }, // Light Orange
   
-  cardLabelLight: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginBottom: 4 },
-  amountLight: { color: '#fff', fontSize: 32, fontWeight: 'bold' },
+  cardLabel: { 
+    fontSize: 14, 
+    marginBottom: SPACING.xs, 
+    fontWeight: '600',
+    letterSpacing: 0.5 
+  },
+  amount: { 
+    fontSize: 32, 
+    fontWeight: '800' 
+  },
+  note: { 
+    fontSize: 11, 
+    marginTop: SPACING.s, 
+    fontStyle: 'italic',
+    fontWeight: '500'
+  },
   
-  cardLabelDark: { color: '#856404', fontSize: 14, marginBottom: 4 },
-  amountDark: { color: '#856404', fontSize: 32, fontWeight: 'bold' },
-  note: { color: '#856404', fontSize: 10, marginTop: 5, fontStyle: 'italic' },
+  iconCircle: {
+    width: 48, 
+    height: 48, 
+    borderRadius: 24,
+    alignItems: 'center', 
+    justifyContent: 'center'
+  },
 
-  historySection: { marginTop: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#333' }
+  section: { marginTop: SPACING.m },
+  sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: SPACING.s },
+  emptyState: {
+    padding: SPACING.l,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    alignItems: 'center'
+  }
 });
