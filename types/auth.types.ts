@@ -59,11 +59,7 @@ export interface AuthResponse {
 
 export interface VerifyOtpResponse {
   message: string;
-  user: {
-    id: string;
-    email: string;
-    role: "VENDOR";
-  };
+  user:AuthResponse['user']
   token: string; // Final auth token
 }
 

@@ -6,12 +6,14 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useVerifyOtp } from '../services/auth/auth.queries';
 import { useTheme } from '../context/themeContext';
+import { useAuth } from '../context/authContext'; // <--- [1] IMPORT THIS
 import { SPACING, SHADOWS } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function VerifyOtpScreen({ route, navigation }: any) {
   const { email, token: tempToken } = route.params; 
   const { colors } = useTheme();
+  const { setAuth } = useAuth(); // <--- [2] GET SETAUTH
   
   const [code, setCode] = useState('');
 
@@ -28,11 +30,15 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
     verify(
       { token: tempToken, code: cleanCode },
       {
-        onSuccess: () => {
-          // [FIX] DO NOT NAVIGATE HERE.
-          // The query hook calls setAuth().
-          // App.tsx detects the change and automatically shows the Profile Screen.
+        onSuccess: (data) => {
+          // [3] CRITICAL FIX: Save the session!
+          // This updates the Context, triggers 'isAuthenticated', 
+          // and the App Navigator automatically switches to the Dashboard.
+          setAuth(data.user, data.token);
         },
+        onError: (error: any) => {
+           Alert.alert("Verification Failed", error.message || "Invalid code");
+        }
       }
     );
   };
@@ -67,7 +73,7 @@ export default function VerifyOtpScreen({ route, navigation }: any) {
               onChangeText={setCode}
               keyboardType="number-pad"
               placeholderTextColor={colors.textLight}
-              maxLength={8}
+              maxLength={6} // Changed from 8 to 6 to match backend
               autoFocus
             />
           </View>
