@@ -12,13 +12,14 @@ export interface RegisterData {
 export interface LoginData {
   email: string;
   password: string;
+  clientType?: "web" | "mobile"; // <--- ADDED
 }
 
 export interface VerifyOtpPayload {
-  token: string; // The temp token received after login/signup
+  token: string;
   code: string;
+  clientType?: "web" | "mobile"; // <--- ADDED
 }
-
 export interface ForgotPasswordPayload {
   email: string;
 }
