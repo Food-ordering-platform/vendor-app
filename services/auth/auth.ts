@@ -91,4 +91,17 @@ export const authService = {
     const response = await api.post("/auth/reset-password", data);
     return response.data;
   },
+
+  getCurrentUser: async (): Promise<AuthResponse['user']> => {
+    try {
+      // This hits your backend authMiddleware. 
+      // If the token is valid, it returns the user. 
+      // If the 24h is up, it throws a 401 error.
+      const response = await api.get("/auth/me"); 
+      return response.data.user;
+    } catch (error: any) {
+      console.error("Get current user error:", error.response?.data || error.message);
+      throw error;
+    }
+  },
 };
