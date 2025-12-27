@@ -16,6 +16,10 @@ const createFormData = (payload: CreateRestaurantPayload) => {
   formData.append("prepTime", String(payload.prepTime));
   formData.append("isOpen", String(payload.isOpen));
 
+  // 👇 ADDED: Append Coordinates
+  if (payload.latitude) formData.append("latitude", String(payload.latitude));
+  if (payload.longitude) formData.append("longitude", String(payload.longitude));
+
   if (payload.imageUri) {
     const filename = payload.imageUri.split("/").pop();
     const match = /\.(\w+)$/.exec(filename || "");

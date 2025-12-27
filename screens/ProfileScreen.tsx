@@ -141,7 +141,9 @@ export default function ProfileScreen({ navigation, route }: any) {
       email,
       prepTime: parseInt(prepTime),
       latitude: location.lat,
-      longitude: location.lng
+      longitude: location.lng,
+      // FIX: Ensure isOpen is included to match the Type Definition
+      isOpen: user?.restaurant?.isOpen ?? false 
     };
 
     const onSuccess = () => {
@@ -167,7 +169,7 @@ export default function ProfileScreen({ navigation, route }: any) {
           
           {!hasRestaurant && (
             <Text style={{color: colors.textLight, marginBottom: 20}}>
-              Welcome! Let's get your restaurant set up so customers can find you.
+              Welcome! Let&apos;s get your restaurant set up so customers can find you.
             </Text>
           )}
 
@@ -244,7 +246,7 @@ export default function ProfileScreen({ navigation, route }: any) {
                             <>
                               <Ionicons name="navigate" size={14} color={COLORS.primary} />
                               <Text style={{color: COLORS.primary, fontSize:12, fontWeight:'600', marginLeft:5}}>
-                                I'm at the shop (Use GPS)
+                                I&apos;m at the shop (Use GPS)
                               </Text>
                             </>
                         )}
