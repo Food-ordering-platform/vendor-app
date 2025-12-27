@@ -1,7 +1,7 @@
-import { useMutation } from '@tanstack/react-query';
+// food-ordering-platform/vendor-app/vendor-app-work-branch/services/auth/auth.queries.ts
+
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { authService } from './auth';
-import * as SecureStore from 'expo-secure-store';
-import { useAuth } from '../../context/authContext'; 
 import { Alert } from 'react-native';
 import { 
   AuthResponse, 
@@ -13,30 +13,19 @@ import {
   VerifyResetOtpResponse
 } from '../../types/auth.types';
 
-// Helper to save session
-const saveSession = async (token: string, user: any) => {
-  if (!token) return; // Prevent saving null/undefined
-  await SecureStore.setItemAsync('auth_token', token);
-  await SecureStore.setItemAsync('user_data', JSON.stringify(user));
+export const useCurrentUser = () => {
+  return useQuery({
+    queryKey: ['currentUser'],
+    queryFn: authService.getCurrentUser,
+    retry: false, // Do not retry if 401/Unauthorized
+    staleTime: 1000 * 60 * 5, // Cache user data for 5 mins
+  });
 };
 
 export const useLogin = () => {
-  const { setAuth } = useAuth();
 
   return useMutation<AuthResponse, Error, LoginData>({
     mutationFn: authService.login,
-    onSuccess: async (data) => {
-      // Check if login requires OTP first
-      if (data.requireOtp) {
-         // UI handles redirection, we don't save session yet
-         return; 
-      }
-      
-      if (data.token) {
-        await saveSession(data.token, data.user);
-        await setAuth(data.user, data.token);
-      }
-    },
     onError: (error: any) => {
       const msg = error?.response?.data?.message || error.message || "Login failed";
       Alert.alert("Login Failed", msg);
@@ -47,7 +36,6 @@ export const useLogin = () => {
 export const useRegister = () => {
   return useMutation<AuthResponse, Error, RegisterData>({
     mutationFn: authService.register,
-    // No onSuccess alert needed, UI handles navigation
     onError: (error: any) => {
       const msg = error?.response?.data?.message || error.message || "Registration failed";
       Alert.alert("Registration Failed", msg);
@@ -56,24 +44,18 @@ export const useRegister = () => {
 };
 
 export const useVerifyOtp = () => {
-  const { setAuth } = useAuth();
-
   return useMutation<VerifyOtpResponse, Error, VerifyOtpPayload>({
     mutationFn: authService.verifyOtp,
-    onSuccess: async (data) => {
-      // [FIX] Defensive check. Backend MUST return a token now.
+    onSuccess: (data) => {
+      // We just pass the data back to the Screen (VerifyOtpScreen).
+      // The Screen will handle saving the token or navigating.
       if (!data.token) {
-        Alert.alert("Error", "Verified, but server sent no token. Please login.");
-        return;
+        // Defensive alert, though controller ensures it.
+        Alert.alert("Notice", "Verified. Please login to continue.");
       }
-      await saveSession(data.token, data.user);
-      await setAuth(data.user, data.token);
     },
     onError: (error: any) => {
-      // User Friendly Error Handling
       let msg = error?.response?.data?.message || error.message || "Verification Failed";
-      
-      // Catch specific backend error strings and make them nicer if needed
       if (msg.includes("jwt expired")) msg = "Your code has expired. Please login again.";
       if (msg.includes("malformed")) msg = "Invalid code format.";
       
@@ -82,7 +64,6 @@ export const useVerifyOtp = () => {
   });
 };
 
-// ... keep useForgotPassword and useResetPassword as is
 export const useForgotPassword = () => {
   return useMutation({
     mutationFn: authService.forgotPassword,

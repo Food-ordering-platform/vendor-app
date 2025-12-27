@@ -1,66 +1,64 @@
+// food-ordering-platform/vendor-app/vendor-app-work-branch/screens/LoginScreen.tsx
+
 import React, { useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  Image,
-  ActivityIndicator,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  KeyboardAvoidingView, Platform, Image, ActivityIndicator, Alert
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useTheme } from "../context/themeContext";
 import { SPACING, SHADOWS } from "../constants/theme";
-import { useLogin } from "../services/auth/auth.queries"; // Import hook
-import { useAuth } from "../context/authContext";
+import { useAuth } from "../context/authContext"; // Import Context only
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 export default function LoginScreen({ navigation }: any) {
   const { colors, isDark } = useTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const { setAuth } = useAuth();
-  const { mutate: login, isPending } = useLogin();
+  // Use the login function from Context, not the mutation directly
+  const { login } = useAuth(); 
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
-      alert("Please enter email and password");
+      Alert.alert("Error", "Please enter email and password");
       return;
     }
 
-    login(
-      { email, password },
-      {
-        onSuccess: async (data) => {
-          //Check for verification Requirement
-          if (data.requireOtp) {
-            navigation.navigate("VerifyOtp", {
-              //Navigate to OTP Screen with token background generated
-              token: data.token,
-              email: data.user.email,
-            });
-            return;
-          }
-          // Double check role
-          if (data.user.role !== "VENDOR") {
-            alert("Unauthorized: This app is for Vendors only.");
-            return;
-          }
+    try {
+      setLoading(true);
+      const data = await login({ email, password });
 
-          // Save session
-          await setAuth(data.user, data.token);
-        },
+      // 1. Check if OTP verification is required
+      if (data.requireOtp) {
+        navigation.navigate("VerifyOtp", {
+          token: data.token, // Temp token for verification
+          email: data.user?.email || email,
+        });
+        return;
       }
-    );
+
+      // 2. Check Role (Double check)
+      // Note: Backend might return user even if not saved to context yet
+      if (data.user && data.user.role !== "VENDOR") {
+        Alert.alert("Unauthorized", "This app is for Vendors only.");
+        // Optional: Call logout() here to clear the token if it was set
+        return;
+      }
+
+      // 3. Success - Context handles storage and state update
+      // Navigation to Dashboard is usually handled by the RootNavigator listening to 'user' state
+
+    } catch (error: any) {
+      Alert.alert("Login Failed", error.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <SafeAreaProvider
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
+    <SafeAreaProvider style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -84,17 +82,11 @@ export default function LoginScreen({ navigation }: any) {
 
         <View style={styles.form}>
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>
-              Email Address
-            </Text>
+            <Text style={[styles.label, { color: colors.text }]}>Email Address</Text>
             <TextInput
               style={[
                 styles.input,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                  color: colors.text,
-                },
+                { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text },
               ]}
               placeholder="vendor@choweasy.com"
               value={email}
@@ -110,11 +102,7 @@ export default function LoginScreen({ navigation }: any) {
             <TextInput
               style={[
                 styles.input,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                  color: colors.text,
-                },
+                { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text },
               ]}
               placeholder="••••••••"
               value={password}
@@ -124,24 +112,18 @@ export default function LoginScreen({ navigation }: any) {
             />
           </View>
 
-          <TouchableOpacity
-            onPress={() => navigation.navigate("ForgotPassword")}
-          >
+          <TouchableOpacity onPress={() => navigation.navigate("ForgotPassword")}>
             <Text style={[styles.forgotText, { color: colors.primary }]}>
               Forgot Password?
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.button,
-              { backgroundColor: colors.primary },
-              isPending && { opacity: 0.7 },
-            ]}
+            style={[styles.button, { backgroundColor: colors.primary }, loading && { opacity: 0.7 }]}
             onPress={handleLogin}
-            disabled={isPending}
+            disabled={loading}
           >
-            {isPending ? (
+            {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.buttonText}>Log In</Text>
@@ -177,34 +159,16 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   logo: { width: 100, height: 100, borderRadius: 20 },
-  welcomeText: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: SPACING.xs,
-    textAlign: "center",
-  },
+  welcomeText: { fontSize: 24, fontWeight: "bold", marginBottom: SPACING.xs, textAlign: "center" },
   subText: { fontSize: 16, textAlign: "center" },
   form: { marginTop: SPACING.m },
   inputGroup: { marginBottom: SPACING.l },
   label: { fontSize: 14, fontWeight: "600", marginBottom: 8 },
   input: { borderWidth: 1, borderRadius: 12, padding: 16, fontSize: 16 },
-  forgotText: {
-    textAlign: "right",
-    fontWeight: "600",
-    marginBottom: SPACING.l,
-  },
-  button: {
-    paddingVertical: 18,
-    borderRadius: 12,
-    alignItems: "center",
-    ...SHADOWS.small,
-  },
+  forgotText: { textAlign: "right", fontWeight: "600", marginBottom: SPACING.l },
+  button: { paddingVertical: 18, borderRadius: 12, alignItems: "center", ...SHADOWS.small },
   buttonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "bold" },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: SPACING.xl,
-  },
+  footer: { flexDirection: "row", justifyContent: "center", marginTop: SPACING.xl },
   footerText: { fontSize: 15 },
   signupText: { fontWeight: "bold", fontSize: 15 },
 });

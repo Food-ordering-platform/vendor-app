@@ -1,37 +1,47 @@
-// screens/SignupScreen.tsx
+// food-ordering-platform/vendor-app/vendor-app-work-branch/screens/SignupScreen.tsx
+
 import React, { useState } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
-  KeyboardAvoidingView, Platform, SafeAreaView, ScrollView 
+  KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Alert, ActivityIndicator 
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
-import { useRegister } from '@/services/auth/auth.queries';
+import { useAuth } from '../context/authContext'; // Import Context
 
 export default function SignupScreen({ navigation }: any) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const {mutate:register, isPending} = useRegister()
+  const { register } = useAuth(); // Use context
 
-  const handleSignup = () => {
-   if(!name || !email || !phone ||!password){
-    alert("Please fill all fields")
+  const handleSignup = async () => {
+   if(!name || !email || !phone || !password){
+    Alert.alert("Error", "Please fill all fields");
     return;
    }
-   register({
-    name, email, password, phone, role:'VENDOR'},{
-      onSuccess:(data) => {
-        //Navigate to verifyOTP passing token and email
-        navigation.navigate('VerifyOtp', {
-          token:data.token,
-          email:email
-        })
-      }
-    })
+
+   try {
+     setLoading(true);
+     const data = await register({
+       name, email, password, phone, role: 'VENDOR'
+     });
+
+     // Success: Backend returns { user, token (temp) }
+     navigation.navigate('VerifyOtp', {
+       token: data.token,
+       email: email
+     });
+
+   } catch (error: any) {
+     Alert.alert("Signup Failed", error.message || "Could not create account");
+   } finally {
+     setLoading(false);
+   }
   };
 
   return (
@@ -96,8 +106,16 @@ export default function SignupScreen({ navigation }: any) {
               />
             </View>
 
-            <TouchableOpacity style={styles.button} onPress={handleSignup}>
-              <Text style={styles.buttonText}>Continue</Text>
+            <TouchableOpacity 
+              style={[styles.button, loading && { opacity: 0.7 }]} 
+              onPress={handleSignup}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Continue</Text>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -117,11 +135,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { padding: SPACING.l, paddingBottom: 50 },
   backBtn: { marginBottom: SPACING.l, marginTop: SPACING.s },
-  
   header: { marginBottom: SPACING.l },
   title: { fontSize: 28, fontWeight: 'bold', color: COLORS.text, marginBottom: SPACING.xs },
   subText: { fontSize: 16, color: COLORS.textLight },
-
   form: { marginTop: SPACING.s },
   inputGroup: { marginBottom: SPACING.m },
   label: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 },
@@ -134,7 +150,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.text,
   },
-  
   button: {
     backgroundColor: COLORS.primary,
     paddingVertical: 18,
@@ -144,7 +159,6 @@ const styles = StyleSheet.create({
     ...SHADOWS.small,
   },
   buttonText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold' },
-
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: SPACING.xl },
   footerText: { color: COLORS.textLight, fontSize: 15 },
   loginText: { color: COLORS.primary, fontWeight: 'bold', fontSize: 15 },

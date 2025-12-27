@@ -1,19 +1,18 @@
 // food-ordering-platform/vendor-app/vendor-app-work-branch/context/authContext.tsx
 
-import React, { createContext, useContext, useEffect, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useContext, ReactNode } from 'react';
+import * as SecureStore from 'expo-secure-store'; // CHANGED: Use SecureStore
 import { useQueryClient } from '@tanstack/react-query';
-import { LoginData, RegisterData, User } from '../types/auth.types';
+import { LoginData, RegisterData, User, AuthResponse } from '../types/auth.types';
 import { useCurrentUser, useLogin, useRegister } from '../services/auth/auth.queries';
-import { Alert } from 'react-native';
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (data: LoginData) => Promise<void>;
-  register: (data: RegisterData) => Promise<void>;
+  login: (data: LoginData) => Promise<AuthResponse>; // Changed return type
+  register: (data: RegisterData) => Promise<AuthResponse>;
   logout: () => Promise<void>;
-  refreshUser: () => Promise<void>; // Exposed to force update user state
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,57 +20,55 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
 
-  // 👇 1. Use the Query Hook for State Management
   const { data: user, isLoading: isUserLoading, refetch } = useCurrentUser();
-  
-  // 👇 2. Use Mutation Hooks
   const loginMutation = useLogin();
   const registerMutation = useRegister();
 
-  // Helper to refresh user manually (e.g., after creating a restaurant)
   const refreshUser = async () => {
     await refetch();
   };
 
-  const login = async (data: LoginData) => {
+  const login = async (data: LoginData): Promise<AuthResponse> => {
     try {
       const res = await loginMutation.mutateAsync(data);
       
       if (res.requireOtp) {
-        // The component will handle the navigation to OTP screen
-        return; 
+        // Return immediately; don't set token yet
+        return res; 
       }
 
       if (res.token) {
-        await AsyncStorage.setItem('token', res.token);
-        // 👇 Immediately fetch user data after setting token
-        await refetch(); 
+        // CHANGED: Use SecureStore and key 'auth_token'
+        await SecureStore.setItemAsync('auth_token', res.token);
+        await refetch(); // Fetch user data immediately
       }
+      return res;
     } catch (error: any) {
-      // Error is handled by the mutation or component
       throw error;
     }
   };
 
-  const register = async (data: RegisterData) => {
+  const register = async (data: RegisterData): Promise<AuthResponse> => {
     try {
       const res = await registerMutation.mutateAsync(data);
-      // Usually followed by OTP, so we don't set token yet
+      // Register usually returns a temp token for OTP, but we don't auto-login yet
+      return res;
     } catch (error: any) {
       throw error;
     }
   };
 
   const logout = async () => {
-    await AsyncStorage.removeItem('token');
-    queryClient.setQueryData(['currentUser'], null); // Clear Cache
+    // CHANGED: Use SecureStore
+    await SecureStore.deleteItemAsync('auth_token');
+    queryClient.setQueryData(['currentUser'], null);
     queryClient.removeQueries({ queryKey: ['currentUser'] });
   };
 
   return (
     <AuthContext.Provider 
       value={{ 
-        user: user || null, // Data from React Query
+        user: user || null, 
         isLoading: isUserLoading, 
         login, 
         register, 
