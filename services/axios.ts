@@ -20,7 +20,7 @@ const api = axios.create({
 // Add Token to requests
 api.interceptors.request.use(
   async (config) => {
-    // console.log(`🚀 Requesting: ${config.baseURL}${config.url}`);
+    console.log(`🚀 Requesting: ${config.baseURL}${config.url}`);
     
     // Ensure this key matches what AuthContext uses
     const token = await SecureStore.getItemAsync("auth_token");

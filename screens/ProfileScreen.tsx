@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
-  ScrollView, ActivityIndicator, Alert, Keyboard
+  ScrollView, ActivityIndicator, Alert, Keyboard, Image, Switch 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location'; 
+import * as ImagePicker from 'expo-image-picker'; 
 import { useAuth } from '../context/authContext';
 import { useTheme } from '../context/themeContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
@@ -21,7 +22,7 @@ type AddressResult = {
 
 export default function ProfileScreen({ navigation, route }: any) {
   const { user } = useAuth();
-  const { colors } = useTheme();
+  const { colors } = useTheme(); // 👈 Removed toggleTheme
   
   // Detect if this is "Setup Mode" (No restaurant yet) or "Edit Mode"
   const hasRestaurant = !!user?.restaurant?.id;
@@ -33,6 +34,12 @@ export default function ProfileScreen({ navigation, route }: any) {
   const [prepTime, setPrepTime] = useState(user?.restaurant?.prepTime?.toString() || "20");
   const [email, setEmail] = useState(user?.restaurant?.email || user?.email || ""); 
   
+  // 👇 RESTAURANT STATUS STATE
+  const [isOpen, setIsOpen] = useState(user?.restaurant?.isOpen ?? true);
+
+  // 👇 IMAGE STATE
+  const [image, setImage] = useState<string | null>(user?.restaurant?.imageUrl || null);
+
   // 👇 ADDRESS & LOCATION STATE
   const [address, setAddress] = useState(user?.restaurant?.address || "");
   const [location, setLocation] = useState<{lat: number, lng: number} | null>(
@@ -52,15 +59,38 @@ export default function ProfileScreen({ navigation, route }: any) {
   const { mutate: updateRestaurant, isPending: isUpdating } = useUpdateRestaurant();
   const isPending = isCreating || isUpdating;
 
-  // 🔎 1. SEARCH LOGIC (Debounced)
+  // 📷 IMAGE PICKER FUNCTION
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert("Permission Denied", "We need camera roll permissions to upload an image.");
+      return;
+    }
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9], // Landscape for restaurant covers
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      setImage(result.assets[0].uri);
+    }
+  };
+
+  // 🔎 SEARCH LOGIC (Restricted to Delta State)
   useEffect(() => {
-    if (!showSuggestions || address.length < 4) return;
+    if (!showSuggestions || address.length < 3) return;
 
     const timerId = setTimeout(async () => {
       setIsSearching(true);
       try {
+        // 🚀 TRICK: Append "Delta State" to search to bias results to Warri/Delta
+        const searchQuery = `${address}, Delta State, Nigeria`;
+        
         const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=5&addressdetails=1`,
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&addressdetails=1&countrycodes=ng`,
           { headers: { "User-Agent": "ChowEasyVendorApp/1.0" } }
         );
         const data = await response.json();
@@ -70,7 +100,7 @@ export default function ProfileScreen({ navigation, route }: any) {
       } finally {
         setIsSearching(false);
       }
-    }, 800); // 800ms delay
+    }, 800); 
 
     return () => clearTimeout(timerId);
   }, [address, showSuggestions]);
@@ -78,12 +108,15 @@ export default function ProfileScreen({ navigation, route }: any) {
   const onAddressChange = (text: string) => {
     setAddress(text);
     setShowSuggestions(true);
-    if (location) setLocation(null); // Reset location if they edit text manually
+    if (location) setLocation(null); 
   };
 
   const selectSuggestion = (item: AddressResult) => {
     Keyboard.dismiss();
-    setAddress(item.display_name);
+    // Clean up display name a bit if it's too long
+    const cleanName = item.display_name.split(", Delta State")[0]; 
+    setAddress(cleanName);
+    
     setLocation({
       lat: parseFloat(item.lat),
       lng: parseFloat(item.lon)
@@ -92,7 +125,7 @@ export default function ProfileScreen({ navigation, route }: any) {
     setSuggestions([]);
   };
 
-  // 📍 2. GPS LOGIC ("I'm at the shop")
+  // 📍 GPS LOGIC 
   const getCurrentLocation = async () => {
     setIsLoadingGPS(true);
     setShowSuggestions(false);
@@ -108,7 +141,6 @@ export default function ProfileScreen({ navigation, route }: any) {
       
       setLocation({ lat: latitude, lng: longitude });
       
-      // Reverse Geocode to fill the text box
       const reverse = await Location.reverseGeocodeAsync({ latitude, longitude });
       if (reverse.length > 0) {
         const addr = reverse[0];
@@ -142,13 +174,12 @@ export default function ProfileScreen({ navigation, route }: any) {
       prepTime: parseInt(prepTime),
       latitude: location.lat,
       longitude: location.lng,
-      // FIX: Ensure isOpen is included to match the Type Definition
-      isOpen: user?.restaurant?.isOpen ?? false 
+      isOpen: isOpen, // 👈 Uses the Toggle State
+      imageUri: image,
     };
 
     const onSuccess = () => {
        Alert.alert("Success", hasRestaurant ? "Profile Updated!" : "Restaurant is Live!");
-       // If this was setup, go to dashboard
        if (isSetupMode) navigation.replace('Main'); 
     };
 
@@ -163,17 +194,55 @@ export default function ProfileScreen({ navigation, route }: any) {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
-            {hasRestaurant ? "Edit Profile" : "Setup Kitchen"}
-          </Text>
           
-          {!hasRestaurant && (
-            <Text style={{color: colors.textLight, marginBottom: 20}}>
-              Welcome! Let&apos;s get your restaurant set up so customers can find you.
-            </Text>
-          )}
+          {/* HEADER (No Toggle Button) */}
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>
+                {hasRestaurant ? "Edit Profile" : "Setup Kitchen"}
+              </Text>
+              {!hasRestaurant && (
+                <Text style={{color: colors.textLight, fontSize: 14}}>
+                  Let&apos;s get your restaurant set up.
+                </Text>
+              )}
+            </View>
+          </View>
+
+          {/* 👇 IMAGE UPLOAD SECTION */}
+          <TouchableOpacity onPress={pickImage} style={[styles.imagePicker, {marginTop: 20}]}>
+             {image ? (
+                <Image source={{ uri: image }} style={styles.imagePreview} />
+             ) : (
+                <View style={[styles.imagePlaceholder, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                   <Ionicons name="camera" size={40} color={colors.textLight} />
+                   <Text style={{ color: colors.textLight, marginTop: 5 }}>Tap to add cover photo</Text>
+                </View>
+             )}
+             <View style={styles.editIcon}>
+                <Ionicons name="pencil" size={16} color="white" />
+             </View>
+          </TouchableOpacity>
 
           <View style={styles.form}>
+            {/* OPEN/CLOSE SWITCH */}
+            {hasRestaurant && (
+              <View style={[styles.switchRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View>
+                   <Text style={[styles.label, { color: colors.text, marginBottom: 0 }]}>Restaurant Status</Text>
+                   <Text style={{ color: isOpen ? COLORS.success : COLORS.error, fontWeight: 'bold', fontSize: 13 }}>
+                      {isOpen ? "Currently Open" : "Currently Closed"}
+                   </Text>
+                </View>
+                <Switch
+                  trackColor={{ false: "#767577", true: COLORS.primary }}
+                  thumbColor={"#f4f3f4"}
+                  onValueChange={setIsOpen}
+                  value={isOpen}
+                />
+              </View>
+            )}
+
             {/* Name */}
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.text }]}>Restaurant Name</Text>
@@ -186,15 +255,15 @@ export default function ProfileScreen({ navigation, route }: any) {
               />
             </View>
 
-            {/* 👇 SMART ADDRESS INPUT */}
+            {/* Smart Address */}
             <View style={[styles.inputGroup, { zIndex: 100 }]}> 
-              <Text style={[styles.label, { color: colors.text }]}>Store Address</Text>
+              <Text style={[styles.label, { color: colors.text }]}>Store Address (Delta State)</Text>
               <View>
                 <TextInput
                     style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
                     value={address}
                     onChangeText={onAddressChange}
-                    placeholder="Start typing your street address..."
+                    placeholder="Enter street name (e.g. Airport Road)"
                     placeholderTextColor={colors.textLight}
                 />
                 {isSearching && (
@@ -212,7 +281,7 @@ export default function ProfileScreen({ navigation, route }: any) {
                             onPress={() => selectSuggestion(item)}
                         >
                             <Ionicons name="location-outline" size={16} color={colors.textLight} style={{marginTop: 2}}/>
-                            <Text style={{color: colors.text, marginLeft: 8, fontSize: 13}}>
+                            <Text style={{color: colors.text, marginLeft: 8, fontSize: 13, flex: 1}}>
                                 {item.display_name}
                             </Text>
                         </TouchableOpacity>
@@ -221,7 +290,7 @@ export default function ProfileScreen({ navigation, route }: any) {
               )}
             </View>
 
-            {/* LOCATION STATUS BOX */}
+            {/* Location Status */}
             <View style={[styles.locationBox, { borderColor: location ? COLORS.success : COLORS.border }]}>
                  <View style={{flexDirection:'row', alignItems:'center'}}>
                     <Ionicons 
@@ -299,13 +368,60 @@ export default function ProfileScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: SPACING.l },
-  headerTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
-  form: { gap: 15 },
+  
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerTitle: { fontSize: 24, fontWeight: 'bold' },
+
+  form: { gap: 15, marginTop: 10 },
   inputGroup: { marginBottom: 5, position: 'relative' },
   label: { fontSize: 13, fontWeight: '600', marginBottom: 6, opacity: 0.8 },
   input: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 16 },
   row: { flexDirection: 'row', gap: 10 },
   
+  // Switch
+  switchRow: {
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    padding: 16,
+    borderWidth: 1,
+    borderRadius: 12,
+    marginBottom: 5
+  },
+
+  // Image Picker Styles
+  imagePicker: {
+    alignSelf: 'center',
+    marginBottom: 20,
+    width: '100%',
+    height: 180,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  editIcon: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    backgroundColor: COLORS.primary,
+    padding: 8,
+    borderRadius: 20,
+  },
+
   // Dropdown
   dropdown: {
     position: 'absolute',
