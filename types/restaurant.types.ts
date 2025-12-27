@@ -9,6 +9,8 @@ export interface Restaurant {
   isOpen:boolean;
   ownerId:string;
   minimumOrder:number
+  latitude?: number | null;
+  longitude?: number | null;
 }
 //Data being sent to the backend (POST REQUEST)
 export interface CreateRestaurantPayload{
@@ -19,6 +21,8 @@ export interface CreateRestaurantPayload{
     email:string
     phone:string
     imageUri?:string | null
+    latitude?: number;
+  longitude?: number;
 }
 
 export interface UpdateRestaurantPayload{

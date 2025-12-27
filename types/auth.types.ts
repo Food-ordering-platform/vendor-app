@@ -1,6 +1,8 @@
 
 //-----------DATA OR REQUEST SENT TO THE BACKEND (REQUEST PAYLOADS)-----------//
 
+import { Restaurant } from "./restaurant.types";
+
 export interface RegisterData {
   name: string;
   email: string;
@@ -32,29 +34,21 @@ export interface VerifyResetOtpPayload {
 
 //-----------DATA RECEIVED FROM THE BACKEND (RESPONSE TYPES)-----------//
 
+
 export interface AuthResponse {
+  user: User;
   token: string;
   requireOtp?: boolean;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    phone: string;
-    role: "VENDOR";
-    restaurant?: {
-      id: string;
-      name: string;
-      address: string;
-      phone: string;
-      email: string;
-      prepTime: number;
-      minimumOrder: number;
-      isOpen: boolean;
-      imageUrl?: string;
-      ownerId: string;
-    } | null;
-  };
-  };
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  phone?: string;
+  restaurant?: Restaurant | null; 
+}
 
 
 export interface VerifyOtpResponse {
