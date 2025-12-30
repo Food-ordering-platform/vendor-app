@@ -7,7 +7,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
-  StatusBar
+  StatusBar,
+  Alert
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -61,7 +62,21 @@ export default function DashboardScreen() {
 
   // --- 4. HANDLERS ---
   const handleStatusUpdate = (orderId: string, newStatus: OrderStatus) => {
-    updateStatus({ orderId, status: newStatus });
+    updateStatus(
+      { orderId, status: newStatus },
+      {
+        onSuccess: () => {
+          // Optional: Add a subtle toast here if you have a Toast component
+          console.log(`Order ${orderId} updated to ${newStatus}`);
+        },
+        onError: (error: any) => {
+          // 🛑 ERROR HANDLING FOR STATE MACHINE
+          // If backend throws "Invalid State Transition", we show it here.
+          const message = error?.response?.data?.message || error.message || "Failed to update status";
+          Alert.alert("Action Failed", message);
+        }
+      }
+    );
   };
 
   const formatItems = (items: Order['items']) => {
