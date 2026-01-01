@@ -112,3 +112,11 @@ export const useGetEarnings = (restaurantId: string) => {
     enabled: !!restaurantId
   })
 }
+
+export const useGetTransactions = (restaurantId: string) => {
+  return useQuery({
+    queryKey: ["transactions", restaurantId],
+    queryFn: () => restaurantService.getTransactions(restaurantId),
+    enabled: !!restaurantId, // Only run if we have an ID
+  });
+};

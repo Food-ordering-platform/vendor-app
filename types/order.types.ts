@@ -41,6 +41,7 @@ export interface Order {
   // Financials
   totalAmount: number;
   deliveryFee: number;
+  vendorFoodTotal: number
   
   // Statuses
   status: OrderStatus;
@@ -57,6 +58,7 @@ export interface Order {
   // Relations (Included in the API response)
   items: OrderItem[];
   customer?: OrderCustomer;
+
 }
 
 // 6. API Response Wrappers

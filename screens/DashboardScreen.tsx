@@ -199,7 +199,7 @@ const renderOrder = ({ item }: { item: Order }) => {
         <View style={styles.priceRow}>
            <Text style={[styles.priceLabel, { color: colors.textLight }]}>Total:</Text>
            <Text style={[styles.price, { color: colors.primary }]}>
-             ₦{item.totalAmount.toLocaleString()}
+             ₦{item.vendorFoodTotal.toLocaleString()}
            </Text>
         </View>
 

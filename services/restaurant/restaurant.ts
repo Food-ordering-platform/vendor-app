@@ -143,4 +143,9 @@ export const restaurantService = {
     );
     return response.data;
   },
+
+  getTransactions: async(restaurantId: string) => {
+    const response = await api.get(`/restaurant/${restaurantId}/transactions`)
+    return response.data
+  }
 };
