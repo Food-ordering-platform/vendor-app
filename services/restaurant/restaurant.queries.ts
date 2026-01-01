@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { restaurantService } from './restaurant';
 import { Alert } from 'react-native';
-import { CreateRestaurantPayload, RestaurantEarningsResponse, UpdateRestaurantPayload } from "../../types/restaurant.types";
+import { CreateRestaurantPayload, RestaurantEarningsResponse, TransactionResponse, UpdateRestaurantPayload } from "../../types/restaurant.types";
 
 export const useCreateRestaurant = () => {
   const queryClient = useQueryClient();
@@ -114,9 +114,9 @@ export const useGetEarnings = (restaurantId: string) => {
 }
 
 export const useGetTransactions = (restaurantId: string) => {
-  return useQuery({
+  return useQuery<TransactionResponse>({ // 👈 Add the generic type here
     queryKey: ["transactions", restaurantId],
     queryFn: () => restaurantService.getTransactions(restaurantId),
-    enabled: !!restaurantId, // Only run if we have an ID
+    enabled: !!restaurantId, 
   });
 };

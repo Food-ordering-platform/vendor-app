@@ -47,3 +47,19 @@ export interface RestaurantEarningsResponse {
   success: boolean;
   data: RestaurantEarnings;
 }
+
+
+export interface Transaction {
+  id: string;
+  amount: number;
+  type: 'CREDIT' | 'DEBIT'; // Money In vs Money Out
+  status: 'PENDING' | 'SUCCESS' | 'FAILED';
+  description: string;
+  createdAt: string; // ISO Date string
+  reference?: string;
+}
+
+export interface TransactionResponse {
+  success: boolean;
+  data: Transaction[];
+}

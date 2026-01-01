@@ -2,15 +2,25 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/authContext';
-import { useGetEarnings, useGetTransactions } from '../services/restaurant/restaurant.queries'; // 👈 Added useGetTransactions
+import { useGetEarnings, useGetTransactions } from '../services/restaurant/restaurant.queries';
 import { useTheme } from '../context/themeContext';
 import HeaderTemp from '../components/HeaderTemp';
 import { SPACING, SHADOWS } from '../constants/theme';
 
-// Helper to format date nicely
+// Helper 1: Format Date
 const formatDate = (dateString: string) => {
+  if (!dateString) return "";
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
+};
+
+// ✂️ Helper 2: Shorten Description (The Fix)
+const formatDescription = (text: string) => {
+  if (!text) return "Transaction";
+  
+  // Regex: Find "Order #" followed by at least 4 chars, and replace with just the first 4
+  // Example: "Earnings for Order #f04f8735..." -> "Earnings for Order #f04f"
+  return text.replace(/(Order #)([a-zA-Z0-9]{4})[a-zA-Z0-9-]+/, "$1$2");
 };
 
 export default function EarningsScreen() {
@@ -25,7 +35,7 @@ export default function EarningsScreen() {
     refetch: refetchEarnings 
   } = useGetEarnings(restaurantId || "");
 
-  // 2. Fetch Transactions (New)
+  // 2. Fetch Transactions
   const { 
     data: transactionData, 
     isLoading: isLoadingTx, 
@@ -37,7 +47,6 @@ export default function EarningsScreen() {
   const pending = earnings?.pendingBalance || 0;
   const transactions = transactionData?.data || [];
 
-  // Combine Refresh Logic
   const onRefresh = () => {
     refetchEarnings();
     refetchTx();
@@ -55,7 +64,7 @@ export default function EarningsScreen() {
           <RefreshControl 
             refreshing={isLoading} 
             onRefresh={onRefresh} 
-            tintColor={colors.primary}
+            tintColor={colors.primary} 
           />
         }
       >
@@ -96,13 +105,13 @@ export default function EarningsScreen() {
           </View>
           <View style={[
             styles.iconCircle, 
-            { backgroundColor: isDark ? 'rgba(255, 193, 7, 0.15)' : '#FFF8E1' }
+            { backgroundColor: isDark ? 'rgba(255, 193, 7, 0.15)' : '#FFF8E1' } 
           ]}>
             <Ionicons name="time" size={24} color={colors.secondary} />
           </View>
         </View>
 
-        {/* --- TRANSACTION HISTORY (UPDATED) --- */}
+        {/* --- TRANSACTION HISTORY --- */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
             Transaction History
@@ -114,14 +123,27 @@ export default function EarningsScreen() {
               <Text style={{ color: colors.textLight }}>No transactions yet.</Text>
             </View>
           ) : (
-            /* Transaction List */
-            <View style={{ backgroundColor: colors.surface, borderRadius: 12, overflow: 'hidden' }}>
+            /* List Container with Shadow */
+            <View style={[
+              styles.listContainer, 
+              { 
+                backgroundColor: colors.surface,
+                ...SHADOWS.medium,
+                shadowColor: "#000",
+                shadowOpacity: 0.1,
+              }
+            ]}>
               {transactions.map((item: any) => (
                 <View key={item.id} style={[styles.transactionItem, { borderBottomColor: colors.border }]}>
                   {/* Left Side: Info */}
                   <View style={styles.transactionLeft}>
-                    <Text style={[styles.transactionTitle, { color: colors.text }]}>
-                      {item.description}
+                    <Text 
+                      style={[styles.transactionTitle, { color: colors.text }]}
+                      numberOfLines={1} // 👈 Force single line just in case
+                      ellipsizeMode="tail"
+                    >
+                      {/* ✅ USE THE FORMATTER HERE */}
+                      {formatDescription(item.description)}
                     </Text>
                     <Text style={[styles.transactionDate, { color: colors.textLight }]}>
                       {formatDate(item.createdAt)}
@@ -132,9 +154,9 @@ export default function EarningsScreen() {
                   <View style={styles.transactionRight}>
                     <Text style={[
                       styles.transactionAmount, 
-                      { color: item.type === 'CREDIT' ? '#10B981' : '#EF4444' } // Green for In, Red for Out
+                      { color: item.type === 'CREDIT' ? '#10B981' : '#EF4444' } 
                     ]}>
-                      {item.type === 'CREDIT' ? '+' : '-'} ₦{item.amount.toLocaleString()}
+                      {item.type === 'CREDIT' ? '+' : '-'} ₦{(item.amount || 0).toLocaleString()}
                     </Text>
                     <Text style={[styles.transactionStatus, { color: colors.textLight }]}>
                       {item.status}
@@ -200,7 +222,12 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
 
-  // New Styles for Transactions
+  listContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 2, 
+  },
+
   transactionItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
