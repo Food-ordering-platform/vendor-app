@@ -1,169 +1,64 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
-  ScrollView, ActivityIndicator, Alert, Keyboard, Image, Switch 
+  ScrollView, ActivityIndicator, Alert, Image, Switch 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Location from 'expo-location'; 
 import * as ImagePicker from 'expo-image-picker'; 
 import { useAuth } from '../context/authContext';
 import { useTheme } from '../context/themeContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { useUpdateRestaurant, useCreateRestaurant } from '../services/restaurant/restaurant.queries';
-
-// Type for OpenStreetMap results
-type AddressResult = {
-  place_id: number;
-  lat: string;
-  lon: string;
-  display_name: string;
-};
+import { useCreateRestaurant, useUpdateRestaurant } from '../services/restaurant/restaurant.queries';
 
 export default function ProfileScreen({ navigation, route }: any) {
-  const { user } = useAuth();
-  const { colors } = useTheme(); // 👈 Removed toggleTheme
+  const { user, logout } = useAuth();
+  const { colors, isDark, setMode } = useTheme();
   
-  // Detect if this is "Setup Mode" (No restaurant yet) or "Edit Mode"
+  const isSetupMode = route.params?.isOnboarding || false;
   const hasRestaurant = !!user?.restaurant?.id;
-  const isSetupMode = !hasRestaurant || route.params?.isOnboarding;
 
   // Form State
   const [restaurantName, setRestaurantName] = useState(user?.restaurant?.name || "");
+  const [address, setAddress] = useState(user?.restaurant?.address || "");
   const [phone, setPhone] = useState(user?.restaurant?.phone || user?.phone || "");
   const [prepTime, setPrepTime] = useState(user?.restaurant?.prepTime?.toString() || "20");
   const [email, setEmail] = useState(user?.restaurant?.email || user?.email || ""); 
-  
-  // 👇 RESTAURANT STATUS STATE
   const [isOpen, setIsOpen] = useState(user?.restaurant?.isOpen ?? true);
-
-  // 👇 IMAGE STATE
-  const [image, setImage] = useState<string | null>(user?.restaurant?.imageUrl || null);
-
-  // 👇 ADDRESS & LOCATION STATE
-  const [address, setAddress] = useState(user?.restaurant?.address || "");
-  const [location, setLocation] = useState<{lat: number, lng: number} | null>(
-    user?.restaurant?.latitude && user?.restaurant?.longitude 
-      ? { lat: user.restaurant.latitude, lng: user.restaurant.longitude }
-      : null
-  );
   
-  // 👇 AUTOCOMPLETE STATE
-  const [suggestions, setSuggestions] = useState<AddressResult[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
-  const [isLoadingGPS, setIsLoadingGPS] = useState(false);
+  // Image State
+  const [image, setImage] = useState(user?.restaurant?.imageUrl || null); 
+  const [newImageUri, setNewImageUri] = useState<string | null>(null);
 
   // Hooks
   const { mutate: createRestaurant, isPending: isCreating } = useCreateRestaurant();
   const { mutate: updateRestaurant, isPending: isUpdating } = useUpdateRestaurant();
   const isPending = isCreating || isUpdating;
 
-  // 📷 IMAGE PICKER FUNCTION
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert("Permission Denied", "We need camera roll permissions to upload an image.");
+      Alert.alert('Permission Denied', 'We need access to your gallery.');
       return;
     }
 
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [16, 9], // Landscape for restaurant covers
+      aspect: [16, 9],
       quality: 0.7,
     });
 
     if (!result.canceled) {
       setImage(result.assets[0].uri);
-    }
-  };
-
-  // 🔎 SEARCH LOGIC (Restricted to Delta State)
-  useEffect(() => {
-    if (!showSuggestions || address.length < 3) return;
-
-    const timerId = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        // 🚀 TRICK: Append "Delta State" to search to bias results to Warri/Delta
-        const searchQuery = `${address}, Delta State, Nigeria`;
-        
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&addressdetails=1&countrycodes=ng`,
-          { headers: { "User-Agent": "ChowEasyVendorApp/1.0" } }
-        );
-        const data = await response.json();
-        setSuggestions(data);
-      } catch (error) {
-        console.log("Autocomplete error", error);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 800); 
-
-    return () => clearTimeout(timerId);
-  }, [address, showSuggestions]);
-
-  const onAddressChange = (text: string) => {
-    setAddress(text);
-    setShowSuggestions(true);
-    if (location) setLocation(null); 
-  };
-
-  const selectSuggestion = (item: AddressResult) => {
-    Keyboard.dismiss();
-    // Clean up display name a bit if it's too long
-    const cleanName = item.display_name.split(", Delta State")[0]; 
-    setAddress(cleanName);
-    
-    setLocation({
-      lat: parseFloat(item.lat),
-      lng: parseFloat(item.lon)
-    });
-    setShowSuggestions(false);
-    setSuggestions([]);
-  };
-
-  // 📍 GPS LOGIC 
-  const getCurrentLocation = async () => {
-    setIsLoadingGPS(true);
-    setShowSuggestions(false);
-    try {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Allow location access to set your store address.');
-        return;
-      }
-      
-      let locationResult = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      const { latitude, longitude } = locationResult.coords;
-      
-      setLocation({ lat: latitude, lng: longitude });
-      
-      const reverse = await Location.reverseGeocodeAsync({ latitude, longitude });
-      if (reverse.length > 0) {
-        const addr = reverse[0];
-        const formatted = `${addr.street || ''} ${addr.city || ''}, ${addr.region || ''}`;
-        setAddress(formatted.trim());
-      }
-      
-      Alert.alert("Success", "Location pinned via GPS!");
-    } catch (error) {
-      Alert.alert("Error", "Could not fetch GPS location.");
-    } finally {
-      setIsLoadingGPS(false);
+      setNewImageUri(result.assets[0].uri);
     }
   };
 
   const handleSave = () => {
-    if (!restaurantName || !address || !phone) {
+    if (!restaurantName || !address || !phone || !email) {
       Alert.alert("Missing Info", "Please fill in all details.");
       return;
-    }
-    if (!location) {
-        Alert.alert("Location Required", "Please select an address from the dropdown or use the GPS button.");
-        return;
     }
 
     const payload = {
@@ -171,194 +66,278 @@ export default function ProfileScreen({ navigation, route }: any) {
       address,
       phone,
       email,
-      prepTime: parseInt(prepTime),
-      latitude: location.lat,
-      longitude: location.lng,
-      isOpen: isOpen, // 👈 Uses the Toggle State
-      imageUri: image,
+      prepTime,
+      isOpen,
+      imageUri: newImageUri
     };
 
     const onSuccess = () => {
        Alert.alert("Success", hasRestaurant ? "Profile Updated!" : "Restaurant is Live!");
-       if (isSetupMode) navigation.replace('Main'); 
+       if (isSetupMode || !hasRestaurant) {
+          navigation.replace('Main');
+       }
     };
 
-    if (hasRestaurant && user?.restaurant?.id) {
-      updateRestaurant({ id: user.restaurant.id, data: payload }, { onSuccess });
+    if (hasRestaurant) {
+      if (!user?.restaurant?.id) {
+        Alert.alert("Error", "Restaurant ID not found. Please restart the app.");
+        return;
+      }
+
+      updateRestaurant(
+        { id: user.restaurant.id, data: payload }, 
+        { onSuccess }
+      );
     } else {
       createRestaurant(payload, { onSuccess });
     }
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
-        <View style={styles.content}>
-          
-          {/* HEADER (No Toggle Button) */}
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={[styles.headerTitle, { color: colors.text }]}>
-                {hasRestaurant ? "Edit Profile" : "Setup Kitchen"}
-              </Text>
-              {!hasRestaurant && (
-                <Text style={{color: colors.textLight, fontSize: 14}}>
-                  Let&apos;s get your restaurant set up.
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        
+        {/* --- COVER IMAGE --- */}
+        <TouchableOpacity onPress={pickImage} activeOpacity={0.9}>
+          <View style={styles.coverSection}>
+            {image ? (
+              <Image source={{ uri: image }} style={styles.coverImage} />
+            ) : (
+              <View style={[styles.coverPlaceholder, { backgroundColor: colors.surface }]}>
+                <View style={[styles.cameraCircle, { backgroundColor: colors.primary + '20' }]}>
+                  <Ionicons name="camera" size={32} color={colors.primary} />
+                </View>
+                <Text style={[styles.addPhotoText, { color: colors.primary }]}>
+                  Add Restaurant Cover
                 </Text>
-              )}
-            </View>
-          </View>
-
-          {/* 👇 IMAGE UPLOAD SECTION */}
-          <TouchableOpacity onPress={pickImage} style={[styles.imagePicker, {marginTop: 20}]}>
-             {image ? (
-                <Image source={{ uri: image }} style={styles.imagePreview} />
-             ) : (
-                <View style={[styles.imagePlaceholder, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                   <Ionicons name="camera" size={40} color={colors.textLight} />
-                   <Text style={{ color: colors.textLight, marginTop: 5 }}>Tap to add cover photo</Text>
-                </View>
-             )}
-             <View style={styles.editIcon}>
-                <Ionicons name="pencil" size={16} color="white" />
-             </View>
-          </TouchableOpacity>
-
-          <View style={styles.form}>
-            {/* OPEN/CLOSE SWITCH */}
-            {hasRestaurant && (
-              <View style={[styles.switchRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <View>
-                   <Text style={[styles.label, { color: colors.text, marginBottom: 0 }]}>Restaurant Status</Text>
-                   <Text style={{ color: isOpen ? COLORS.success : COLORS.error, fontWeight: 'bold', fontSize: 13 }}>
-                      {isOpen ? "Currently Open" : "Currently Closed"}
-                   </Text>
-                </View>
-                <Switch
-                  trackColor={{ false: "#767577", true: COLORS.primary }}
-                  thumbColor={"#f4f3f4"}
-                  onValueChange={setIsOpen}
-                  value={isOpen}
-                />
+                <Text style={[styles.addPhotoSubtext, { color: colors.textLight }]}>
+                  Recommended: 1200 x 600px
+                </Text>
               </View>
             )}
+            <View style={styles.editOverlay}>
+              <View style={styles.editButton}>
+                <Ionicons name="pencil" size={16} color="white" />
+                <Text style={styles.editText}>Change Photo</Text>
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
 
-            {/* Name */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.text }]}>Restaurant Name</Text>
+        {/* --- HEADER --- */}
+        <View style={styles.headerSection}>
+          <Text style={[styles.screenTitle, { color: colors.text }]}>
+            {hasRestaurant ? "Restaurant Profile" : "Setup Your Kitchen"}
+          </Text>
+          <Text style={[styles.screenSubtitle, { color: colors.textLight }]}>
+            {hasRestaurant ? "Manage your restaurant information" : "Let's get your restaurant online"}
+          </Text>
+        </View>
+
+        {/* --- FORM CONTENT --- */}
+        <View style={styles.formContainer}>
+          
+          {/* Restaurant Details Section */}
+          <View style={[styles.section, { backgroundColor: colors.surface }]}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="restaurant" size={20} color={colors.primary} />
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Restaurant Details
+              </Text>
+            </View>
+
+            <View style={styles.inputWrapper}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Restaurant Name</Text>
               <TextInput
-                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
+                style={[styles.input, { 
+                  borderColor: colors.border, 
+                  color: colors.text, 
+                  backgroundColor: isDark ? '#1F2937' : '#F9FAFB'
+                }]}
                 value={restaurantName}
                 onChangeText={setRestaurantName}
-                placeholder="Mama's Kitchen"
+                placeholder="e.g., Mama's Kitchen"
                 placeholderTextColor={colors.textLight}
               />
             </View>
 
-            {/* Smart Address */}
-            <View style={[styles.inputGroup, { zIndex: 100 }]}> 
-              <Text style={[styles.label, { color: colors.text }]}>Store Address (Delta State)</Text>
-              <View>
-                <TextInput
-                    style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
-                    value={address}
-                    onChangeText={onAddressChange}
-                    placeholder="Enter street name (e.g. Airport Road)"
-                    placeholderTextColor={colors.textLight}
-                />
-                {isSearching && (
-                    <ActivityIndicator style={{position:'absolute', right: 10, top: 14}} size="small" color={COLORS.primary}/>
-                )}
-              </View>
-
-              {/* DROPDOWN */}
-              {showSuggestions && suggestions.length > 0 && (
-                <View style={[styles.dropdown, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    {suggestions.map((item) => (
-                        <TouchableOpacity 
-                            key={item.place_id} 
-                            style={[styles.suggestionItem, { borderBottomColor: colors.border }]}
-                            onPress={() => selectSuggestion(item)}
-                        >
-                            <Ionicons name="location-outline" size={16} color={colors.textLight} style={{marginTop: 2}}/>
-                            <Text style={{color: colors.text, marginLeft: 8, fontSize: 13, flex: 1}}>
-                                {item.display_name}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-              )}
-            </View>
-
-            {/* Location Status */}
-            <View style={[styles.locationBox, { borderColor: location ? COLORS.success : COLORS.border }]}>
-                 <View style={{flexDirection:'row', alignItems:'center'}}>
-                    <Ionicons 
-                      name={location ? "checkmark-circle" : "alert-circle-outline"} 
-                      size={20} 
-                      color={location ? COLORS.success : COLORS.textLight} 
-                    />
-                    <Text style={{ marginLeft: 8, color: colors.text, fontSize: 13, flex: 1 }}>
-                      {location 
-                        ? "Location Pinned! ✅" 
-                        : "No location pinned. Select an address or use GPS."}
-                    </Text>
-                 </View>
-
-                 {!location && (
-                    <TouchableOpacity 
-                      style={[styles.gpsBtn, { marginTop: 10, borderColor: COLORS.primary }]}
-                      onPress={getCurrentLocation}
-                      disabled={isLoadingGPS}
-                    >
-                        {isLoadingGPS ? <ActivityIndicator size="small" color={COLORS.primary}/> : (
-                            <>
-                              <Ionicons name="navigate" size={14} color={COLORS.primary} />
-                              <Text style={{color: COLORS.primary, fontSize:12, fontWeight:'600', marginLeft:5}}>
-                                I&apos;m at the shop (Use GPS)
-                              </Text>
-                            </>
-                        )}
-                    </TouchableOpacity>
-                 )}
-            </View>
-
-            {/* Other Inputs */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.text }]}>Phone</Text>
+            <View style={styles.inputWrapper}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Address</Text>
               <TextInput
-                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
+                style={[styles.input, { 
+                  borderColor: colors.border, 
+                  color: colors.text, 
+                  backgroundColor: isDark ? '#1F2937' : '#F9FAFB'
+                }]}
+                value={address}
+                onChangeText={setAddress}
+                placeholder="123 Main Street, City"
+                placeholderTextColor={colors.textLight}
+              />
+            </View>
+          </View>
+
+          {/* Contact Information Section */}
+          <View style={[styles.section, { backgroundColor: colors.surface }]}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="call" size={20} color={colors.primary} />
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Contact Information
+              </Text>
+            </View>
+
+            <View style={styles.inputWrapper}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Email Address</Text>
+              <TextInput
+                style={[styles.input, { 
+                  borderColor: colors.border, 
+                  color: colors.text, 
+                  backgroundColor: isDark ? '#1F2937' : '#F9FAFB'
+                }]}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="business@restaurant.com"
+                placeholderTextColor={colors.textLight}
+                keyboardType="email-address"
+                autoCapitalize="none"
               />
             </View>
 
-             <View style={styles.row}>
-                <View style={[styles.inputGroup, { flex: 1 }]}>
-                    <Text style={[styles.label, { color: colors.text }]}>Prep Time (Mins)</Text>
-                    <TextInput
-                        style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
-                        value={prepTime}
-                        onChangeText={setPrepTime}
-                        keyboardType="numeric"
-                    />
-                </View>
+            <View style={styles.row}>
+              <View style={[styles.inputWrapper, { flex: 1, marginRight: 10 }]}>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Phone Number</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    borderColor: colors.border, 
+                    color: colors.text, 
+                    backgroundColor: isDark ? '#1F2937' : '#F9FAFB'
+                  }]}
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="+234 800 000 0000"
+                  keyboardType="phone-pad"
+                  placeholderTextColor={colors.textLight}
+                />
+              </View>
+              <View style={[styles.inputWrapper, { flex: 1 }]}>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>Prep Time (min)</Text>
+                <TextInput
+                  style={[styles.input, { 
+                    borderColor: colors.border, 
+                    color: colors.text, 
+                    backgroundColor: isDark ? '#1F2937' : '#F9FAFB'
+                  }]}
+                  value={prepTime}
+                  onChangeText={setPrepTime}
+                  placeholder="20"
+                  keyboardType="numeric"
+                  placeholderTextColor={colors.textLight}
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* Settings Section */}
+          <View style={[styles.section, { backgroundColor: colors.surface }]}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="settings" size={20} color={colors.primary} />
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Settings
+              </Text>
             </View>
 
-            <TouchableOpacity
-              style={[styles.saveButton, { backgroundColor: colors.primary }]}
-              onPress={handleSave}
-              disabled={isPending}
-            >
-              {isPending ? <ActivityIndicator color="white" /> : (
-                <Text style={styles.saveButtonText}>
-                  {hasRestaurant ? "Save Changes" : "Go Live 🚀"}
-                </Text>
-              )}
-            </TouchableOpacity>
+            <View style={[styles.toggleItem, { borderColor: isDark ? '#374151' : '#E5E7EB' }]}>
+              <View style={styles.toggleInfo}>
+                <View style={[styles.toggleIconBox, { 
+                  backgroundColor: isOpen ? colors.success + '20' : colors.textLight + '20' 
+                }]}>
+                  <Ionicons 
+                    name={isOpen ? "checkmark-circle" : "close-circle"} 
+                    size={20} 
+                    color={isOpen ? colors.success : colors.textLight} 
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.toggleTitle, { color: colors.text }]}>
+                    Restaurant Status
+                  </Text>
+                  <Text style={[styles.toggleSubtitle, { 
+                    color: isOpen ? colors.success : colors.textLight 
+                  }]}>
+                    {isOpen ? "Currently accepting orders" : "Closed for orders"}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={isOpen}
+                onValueChange={setIsOpen}
+                trackColor={{ false: "#D1D5DB", true: colors.success + '60' }}
+                thumbColor={isOpen ? colors.success : "#9CA3AF"}
+              />
+            </View>
 
+            <View style={[styles.toggleItem, { borderColor: isDark ? '#374151' : '#E5E7EB' }]}>
+              <View style={styles.toggleInfo}>
+                <View style={[styles.toggleIconBox, { 
+                  backgroundColor: isDark ? '#FCD34D20' : colors.primary + '20'
+                }]}>
+                  <Ionicons 
+                    name={isDark ? "moon" : "sunny"} 
+                    size={20} 
+                    color={isDark ? '#FCD34D' : colors.primary} 
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.toggleTitle, { color: colors.text }]}>
+                    Dark Mode
+                  </Text>
+                  <Text style={[styles.toggleSubtitle, { color: colors.textLight }]}>
+                    {isDark ? "Dark theme enabled" : "Light theme enabled"}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={isDark}
+                onValueChange={(val) => setMode(val ? 'dark' : 'light')}
+                trackColor={{ false: "#D1D5DB", true: colors.primary + '60' }}
+                thumbColor={isDark ? colors.primary : "#9CA3AF"}
+              />
+            </View>
           </View>
+
+          {/* Save Button */}
+          <TouchableOpacity
+            style={[styles.saveButton, { backgroundColor: colors.primary }]}
+            onPress={handleSave}
+            disabled={isPending}
+            activeOpacity={0.8}
+          >
+            {isPending ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <>
+                <Ionicons 
+                  name={hasRestaurant ? "checkmark-circle" : "rocket"} 
+                  size={20} 
+                  color="white" 
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.saveButtonText}>
+                  {hasRestaurant ? "Save Changes" : "Launch Restaurant"}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* Logout Button */}
+          <TouchableOpacity 
+            onPress={logout} 
+            style={[styles.logoutButton, { backgroundColor: colors.danger + '15' }]}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+            <Text style={[styles.logoutText, { color: colors.danger }]}>Sign Out</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -367,100 +346,172 @@ export default function ProfileScreen({ navigation, route }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: SPACING.l },
   
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerTitle: { fontSize: 24, fontWeight: 'bold' },
-
-  form: { gap: 15, marginTop: 10 },
-  inputGroup: { marginBottom: 5, position: 'relative' },
-  label: { fontSize: 13, fontWeight: '600', marginBottom: 6, opacity: 0.8 },
-  input: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 16 },
-  row: { flexDirection: 'row', gap: 10 },
-  
-  // Switch
-  switchRow: {
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center',
-    padding: 16,
-    borderWidth: 1,
-    borderRadius: 12,
-    marginBottom: 5
-  },
-
-  // Image Picker Styles
-  imagePicker: {
-    alignSelf: 'center',
-    marginBottom: 20,
-    width: '100%',
-    height: 180,
-    borderRadius: 12,
-    overflow: 'hidden',
+  // Cover Section
+  coverSection: { 
+    height: 220, 
     position: 'relative',
+    marginBottom: SPACING.l
   },
-  imagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    borderWidth: 1,
-    borderStyle: 'dashed',
+  coverImage: { 
+    width: '100%', 
+    height: '100%', 
+    resizeMode: 'cover' 
+  },
+  coverPlaceholder: { 
+    width: '100%', 
+    height: '100%', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  cameraCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 12,
+    marginBottom: 16
   },
-  imagePreview: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+  addPhotoText: { 
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4
   },
-  editIcon: {
+  addPhotoSubtext: {
+    fontSize: 12,
+    fontWeight: '500'
+  },
+  editOverlay: {
     position: 'absolute',
-    bottom: 10,
-    right: 10,
-    backgroundColor: COLORS.primary,
-    padding: 8,
-    borderRadius: 20,
-  },
-
-  // Dropdown
-  dropdown: {
-    position: 'absolute',
-    top: '100%',
+    bottom: 0,
     left: 0,
     right: 0,
-    borderWidth: 1,
-    borderTopWidth: 0,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-    elevation: 5,
-    shadowColor: "#000",
-    zIndex: 1000, 
-    maxHeight: 200,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)'
   },
-  suggestionItem: {
+  editButton: {
     flexDirection: 'row',
-    padding: 12,
-    borderBottomWidth: 0.5,
+    alignItems: 'center',
+    gap: 8
   },
-
-  // Location Box
-  locationBox: {
+  editText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '700'
+  },
+  
+  // Header
+  headerSection: {
+    paddingHorizontal: SPACING.l,
+    marginBottom: SPACING.l
+  },
+  screenTitle: { 
+    fontSize: 28, 
+    fontWeight: '800',
+    marginBottom: 6
+  },
+  screenSubtitle: {
+    fontSize: 15,
+    lineHeight: 22
+  },
+  
+  // Form
+  formContainer: { 
+    paddingHorizontal: SPACING.m,
+    gap: SPACING.m
+  },
+  section: {
+    borderRadius: 20,
+    padding: SPACING.l,
+    ...SHADOWS.small
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.l,
+    gap: 10
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '800'
+  },
+  
+  // Inputs
+  inputWrapper: { marginBottom: SPACING.m },
+  inputLabel: { 
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
+  },
+  input: { 
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    backgroundColor: 'rgba(0,0,0,0.02)',
-    marginTop: 5
+    borderRadius: 14,
+    padding: 16,
+    fontSize: 15,
+    fontWeight: '500'
   },
-  gpsBtn: {
+  row: { flexDirection: 'row' },
+  
+  // Toggles
+  toggleItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: SPACING.m,
+    borderBottomWidth: 1,
+    marginBottom: SPACING.m
+  },
+  toggleInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12
+  },
+  toggleIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  toggleTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4
+  },
+  toggleSubtitle: {
+    fontSize: 13,
+    fontWeight: '500'
+  },
+  
+  // Buttons
+  saveButton: { 
+    flexDirection: 'row',
+    paddingVertical: 18,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOWS.medium
+  },
+  saveButtonText: { 
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '800'
+  },
+  logoutButton: { 
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderRadius: 8,
+    padding: 16,
+    borderRadius: 16,
+    gap: 8
   },
-  
-  saveButton: { marginTop: 20, paddingVertical: 18, borderRadius: 12, alignItems: 'center', ...SHADOWS.medium },
-  saveButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+  logoutText: {
+    fontSize: 15,
+    fontWeight: '700'
+  }
 });

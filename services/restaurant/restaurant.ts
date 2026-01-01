@@ -1,6 +1,7 @@
 import api from "../axios";
 import {
   CreateRestaurantPayload,
+  PayoutRequestPayload,
   RestaurantEarningsResponse,
   UpdateRestaurantPayload,
 } from "../../types/restaurant.types";
@@ -18,7 +19,8 @@ const createFormData = (payload: CreateRestaurantPayload) => {
 
   // 👇 ADDED: Append Coordinates
   if (payload.latitude) formData.append("latitude", String(payload.latitude));
-  if (payload.longitude) formData.append("longitude", String(payload.longitude));
+  if (payload.longitude)
+    formData.append("longitude", String(payload.longitude));
 
   if (payload.imageUri) {
     const filename = payload.imageUri.split("/").pop();
@@ -144,8 +146,18 @@ export const restaurantService = {
     return response.data;
   },
 
-  getTransactions: async(restaurantId: string) => {
-    const response = await api.get(`/restaurant/${restaurantId}/transactions`)
-    return response.data
-  }
+  getTransactions: async (restaurantId: string) => {
+    const response = await api.get(`/restaurant/${restaurantId}/transactions`);
+    return response.data;
+  },
+  requestPayout: async (payload: PayoutRequestPayload) => {
+    const { restaurantId, amount, bankDetails } = payload;
+
+    // We send { amount, bankDetails } to the backend
+    const response = await api.post(`/restaurant/${restaurantId}/withdraw`, {
+      amount,
+      bankDetails,
+    });
+    return response.data;
+  },
 };

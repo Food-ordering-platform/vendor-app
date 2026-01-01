@@ -63,3 +63,15 @@ export interface TransactionResponse {
   success: boolean;
   data: Transaction[];
 }
+
+export interface BankDetails {
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+}
+
+export interface PayoutRequestPayload {
+  restaurantId: string;
+  amount: number;
+  bankDetails: BankDetails;
+}
