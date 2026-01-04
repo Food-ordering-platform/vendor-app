@@ -8,16 +8,19 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
-import { useAuth } from '../context/authContext'; // Import Context
+import { useAuth } from '../context/authContext';
 
 export default function SignupScreen({ navigation }: any) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  
+  // 1. State for Terms Agreement
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const { register } = useAuth(); // Use context
+  const { register } = useAuth();
 
   const handleSignup = async () => {
    if(!name || !email || !phone || !password){
@@ -25,13 +28,24 @@ export default function SignupScreen({ navigation }: any) {
     return;
    }
 
+   // 2. Validate Checkbox
+   if (!termsAccepted) {
+    Alert.alert("Agreement Required", "You must agree to the Merchant Partner Agreement to continue.");
+    return;
+   }
+
    try {
      setLoading(true);
+     // 3. Send terms: true to backend
      const data = await register({
-       name, email, password, phone, role: 'VENDOR'
+       name, 
+       email, 
+       password, 
+       phone, 
+       role: 'VENDOR',
+       terms: true 
      });
 
-     // Success: Backend returns { user, token (temp) }
      navigation.navigate('VerifyOtp', {
        token: data.token,
        email: email
@@ -106,6 +120,39 @@ export default function SignupScreen({ navigation }: any) {
               />
             </View>
 
+            {/* 4. Checkbox UI Section */}
+            <TouchableOpacity 
+              style={styles.termsContainer} 
+              onPress={() => setTermsAccepted(!termsAccepted)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+                {termsAccepted && <Ionicons name="checkmark" size={14} color="white" />}
+              </View>
+              <Text style={styles.termsText}>
+                I agree to the{' '}
+                <Text 
+                  style={styles.linkText} 
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    navigation.navigate('Terms');
+                  }}
+                >
+                  Merchant Partner Agreement
+                </Text>
+                {' '}and{' '}
+                <Text 
+                  style={styles.linkText} 
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    navigation.navigate('Privacy');
+                  }}
+                >
+                  Privacy Policy
+                </Text>
+              </Text>
+            </TouchableOpacity>
+
             <TouchableOpacity 
               style={[styles.button, loading && { opacity: 0.7 }]} 
               onPress={handleSignup}
@@ -155,11 +202,44 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: SPACING.m,
+    marginTop: SPACING.s, // Reduced slightly since checkbox is above
     ...SHADOWS.small,
   },
   buttonText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold' },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: SPACING.xl },
   footerText: { color: COLORS.textLight, fontSize: 15 },
   loginText: { color: COLORS.primary, fontWeight: 'bold', fontSize: 15 },
+
+  // New Checkbox Styles
+  termsContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    borderRadius: 4,
+    marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2, // Align with the top line of text
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.primary,
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 13,
+    color: COLORS.text,
+    lineHeight: 20,
+  },
+  linkText: {
+    color: COLORS.primary,
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
+  },
 });

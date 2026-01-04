@@ -9,12 +9,13 @@ export interface RegisterData {
   password: string;
   phone: string; // Phone is usually mandatory for vendors
   role: "VENDOR"; // Strict typing for this app
+  terms: boolean
 }
 
 export interface LoginData {
   email: string;
   password: string;
-  clientType?: "web" | "mobile"; // <--- ADDED
+  clientType?: "web" | "mobile"; // <--- ADDED 
 }
 
 export interface VerifyOtpPayload {

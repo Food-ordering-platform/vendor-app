@@ -28,6 +28,8 @@ import VerifyOtpScreen from "./screens/VerifyOtpScreen";
 import ForgotPasswordScreen from "./screens/ForgotPasswordScreen";
 import VerifyResetOtpScreen from "./screens/VerifyResetOtpScreen";
 import ResetPasswordScreen from "./screens/ResetPasswordScreen";
+import TermsScreen from "./screens/TermsScreen";
+import PrivacyScreen from './screens/PrivacyScreen';
 import { ThemeProvider } from "./context/themeContext";
 import { SocketProvider } from "./context/socketContext";
 
@@ -129,6 +131,8 @@ function NavigationContent() {
             <Stack.Screen name="Onboarding" component={OnboardingScreen} />
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Signup" component={SignupScreen} />
+            <Stack.Screen name="Terms" component={TermsScreen} />
+  <Stack.Screen name="Privacy" component={PrivacyScreen} />
             <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
             <Stack.Screen
               name="ForgotPassword"
