@@ -13,7 +13,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../context/themeContext";
 import { useAuth } from "../context/authContext";
-import { LinearGradient } from 'expo-linear-gradient';
 
 // --- API & TYPES ---
 import { useGetVendorOrders, useUpdateOrderStatus } from "../services/order/order.queries";
@@ -46,9 +45,11 @@ export default function DashboardScreen() {
         return o.status === "PENDING";
       }
       if (activeTab === "PREPARING") {
+        // Now 'PREPARING' implies we are waiting for a rider to pick it up
         return o.status === "PREPARING";
       }
       if (activeTab === "HISTORY") {
+        // Once rider picks up (OUT_FOR_DELIVERY), it moves to history here
         return ["DELIVERED", "CANCELLED", "REFUNDED", "OUT_FOR_DELIVERY"].includes(o.status);
       }
       return false;
@@ -68,7 +69,6 @@ export default function DashboardScreen() {
 
   const renderHeader = () => (
     <View style={[styles.headerContainer, { backgroundColor: colors.surface }]}>
-      {/* Gradient Overlay for depth */}
       <View style={styles.headerContent}>
         {/* Top Section */}
         <View style={styles.headerTop}>
@@ -199,41 +199,42 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* Action Buttons */}
-        {activeTab !== 'HISTORY' && (
+        {/* --- ACTION BUTTONS --- */}
+        {/* We only show actions for PENDING orders. 'Call Rider' is removed. */}
+        {activeTab !== 'HISTORY' && item.status === "PENDING" && (
           <View style={styles.actionButtons}>
-            {item.status === "PENDING" ? (
-              <>
-                <TouchableOpacity 
-                  disabled={isUpdating}
-                  style={[styles.actionBtn, styles.rejectBtn, { borderColor: colors.danger }]}
-                  onPress={() => handleStatusUpdate(item.id, "CANCELLED")}
-                >
-                  <Ionicons name="close" size={18} color={colors.danger} />
-                  <Text style={[styles.actionBtnText, { color: colors.danger }]}>Decline</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  disabled={isUpdating}
-                  style={[styles.actionBtn, styles.acceptBtn, { backgroundColor: colors.success }]}
-                  onPress={() => handleStatusUpdate(item.id, "PREPARING")}
-                >
-                  <Ionicons name="checkmark" size={18} color="white" />
-                  <Text style={[styles.actionBtnText, { color: "white" }]}>Accept</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <TouchableOpacity 
-                style={[styles.actionBtn, styles.riderBtn, { backgroundColor: colors.primary }]}
-                disabled={isUpdating} 
-                onPress={() => handleStatusUpdate(item.id, "OUT_FOR_DELIVERY")}
-              >
-                <Ionicons name="bicycle" size={18} color="white" />
-                <Text style={[styles.actionBtnText, { color: "white" }]}>Call Rider</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity 
+              disabled={isUpdating}
+              style={[styles.actionBtn, styles.rejectBtn, { borderColor: colors.danger }]}
+              onPress={() => handleStatusUpdate(item.id, "CANCELLED")}
+            >
+              <Ionicons name="close" size={18} color={colors.danger} />
+              <Text style={[styles.actionBtnText, { color: colors.danger }]}>Decline</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              disabled={isUpdating}
+              style={[styles.actionBtn, styles.acceptBtn, { backgroundColor: colors.success }]}
+              // Accepting now sets it to PREPARING, which triggers Auto-Dispatch on Backend
+              onPress={() => handleStatusUpdate(item.id, "PREPARING")}
+            >
+              <Ionicons name="checkmark" size={18} color="white" />
+              <Text style={[styles.actionBtnText, { color: "white" }]}>Accept</Text>
+            </TouchableOpacity>
           </View>
         )}
+
+        {/* --- AUTOMATION FEEDBACK --- */}
+        {/* If order is PREPARING, show user that system is working */}
+        {item.status === "PREPARING" && (
+            <View style={styles.autoDispatchContainer}>
+                <View style={[styles.pulsingDot, { backgroundColor: colors.primary }]} />
+                <Text style={[styles.autoDispatchText, { color: colors.textLight }]}>
+                    Broadcasting to Riders...
+                </Text>
+            </View>
+        )}
+
       </View>
     );
   };
@@ -250,7 +251,7 @@ export default function DashboardScreen() {
       {/* Tab Bar */}
       <View style={[styles.tabBar, { backgroundColor: colors.surface }]}>
         {[
-          { key: 'PENDING', label: 'New', icon: 'notifications-outline' },
+          { key: 'PENDING', label: 'New Request', icon: 'notifications-outline' },
           { key: 'PREPARING', label: 'Kitchen', icon: 'flame-outline' },
           { key: 'HISTORY', label: 'History', icon: 'archive-outline' }
         ].map((tab) => (
@@ -519,8 +520,31 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent'
   },
   acceptBtn: {},
-  riderBtn: {},
   actionBtnText: { fontSize: 15, fontWeight: '700' },
+
+  // Auto Dispatch Feedback
+  autoDispatchContainer: {
+    marginTop: 15, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)'
+  },
+  pulsingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+    opacity: 0.6
+  },
+  autoDispatchText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontStyle: 'italic',
+    letterSpacing: 0.5
+  },
   
   // Empty State
   emptyState: { 
