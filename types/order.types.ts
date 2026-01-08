@@ -2,7 +2,8 @@
 export type OrderStatus = 
   | 'PENDING' 
   | 'PREPARING' 
-  | 'OUT_FOR_DELIVERY' 
+  | 'READY_FOR_PICKUP'
+  | 'OUT_FOR_DELIVERY'
   | 'DELIVERED' 
   | 'CANCELLED';
 
