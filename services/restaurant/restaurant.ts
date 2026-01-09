@@ -137,26 +137,23 @@ export const restaurantService = {
   },
 
   //getEarnings
-  getEarnings: async (
-    restaurantId: string
-  ): Promise<RestaurantEarningsResponse> => {
-    const response = await api.get<RestaurantEarningsResponse>(
-      `/restaurant/${restaurantId}/earnings`
-    );
-    return response.data;
+  // [NEW] Get Earnings (Balance)
+  getEarnings: async (restaurantId: string) => {
+    const response = await api.get(`/restaurant/${restaurantId}/earnings`);
+    return response.data.data;
   },
 
+  // [NEW] Get Transactions (History)
   getTransactions: async (restaurantId: string) => {
     const response = await api.get(`/restaurant/${restaurantId}/transactions`);
-    return response.data;
+    return response.data.data;
   },
-  requestPayout: async (payload: PayoutRequestPayload) => {
-    const { restaurantId, amount, bankDetails } = payload;
 
-    // We send { amount, bankDetails } to the backend
-    const response = await api.post(`/restaurant/${restaurantId}/withdraw`, {
+  // [NEW] Request Payout
+  requestPayout: async (restaurantId: string, amount: number, bankDetails: any) => {
+    const response = await api.post(`/restaurant/${restaurantId}/payout`, {
       amount,
-      bankDetails,
+      bankDetails
     });
     return response.data;
   },

@@ -13,6 +13,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./context/authContext";
 import { ActivityIndicator, View, Platform } from "react-native";
 // import { usePushNotifications } from "./hooks/usePushNotification";
+import { useOrderNotification } from "./hooks/useOrderNotification";
 
 // Screens
 import OnboardingScreen from "./screens/OnboardingScreen";
@@ -95,6 +96,7 @@ function VendorTabs() {
 function NavigationContent() {
   const { isAuthenticated, isLoading, user } = useAuth(); // [FIX] Get 'user' to check restaurant status
   // usePushNotifications(user)
+  useOrderNotification()
 
   if (isLoading) {
     return (

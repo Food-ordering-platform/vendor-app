@@ -38,6 +38,8 @@ export interface Order {
   reference: string;
   customerId: string;
   restaurantId: string;
+  riderName:string
+  riderPhone:string
   
   // Financials
   totalAmount: number;

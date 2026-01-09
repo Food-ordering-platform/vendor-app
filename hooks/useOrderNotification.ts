@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useSocket } from '../context/socketContext';
-import { Alert, Vibration, Platform } from 'react-native'; // <--- Import Vibration
+import { Alert, Vibration } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
 export const useOrderNotification = () => {
@@ -10,43 +10,33 @@ export const useOrderNotification = () => {
   useEffect(() => {
     if (!socket) return;
 
+    // Existing "New Order" Handler
     const handleNewOrder = async (data: any) => {
       console.log("📳 SILENT ORDER RECEIVED:", data);
-
-      // 1. VIBRATE THE PHONE
-      // Android: Vibrate for 1s, Pause 0.5s, Vibrate 1s (Like a phone call)
-      // iOS: Just vibrates once (Apple is strict about patterns)
       const PATTERN = [0, 1000, 500, 1000]; 
       Vibration.vibrate(PATTERN);
-
-      // 2. Show Alert
-      Alert.alert(
-        "New Order! 🥘", 
-        `Order worth ₦${data.totalAmount} received.`,
-        [
-          { 
-            text: "View", 
-            onPress: () => {
-              // Stop vibration when they click "View"
-              Vibration.cancel();
-            } 
-          },
-          {
-            text: "Close",
-            onPress: () => Vibration.cancel() // Stop vibration on close
-          }
-        ]
-      );
-
-      // 3. Refresh the List
+      Alert.alert("New Order! 🥘", `Order worth ₦${data.totalAmount} received.`, [
+          { text: "View", onPress: () => Vibration.cancel() },
+          { text: "Close", onPress: () => Vibration.cancel() }
+      ]);
       await queryClient.invalidateQueries({ queryKey: ['vendorOrders'] });
     };
 
+    // 👇👇 INSERT THIS NEW HANDLER 👇👇
+    const handleOrderUpdate = async (data: any) => {
+      console.log("🔄 Order Status Updated:", data);
+      // Silently refresh the list to show new status (e.g. "Rider Found")
+      await queryClient.invalidateQueries({ queryKey: ['vendorOrders'] });
+    };
+    // 👆👆 END INSERT 👆👆
+
     socket.on("new_order", handleNewOrder);
+    socket.on("order_updated", handleOrderUpdate); // 👈 Listen here
 
     return () => {
       socket.off("new_order", handleNewOrder);
-      Vibration.cancel(); // Cleanup: Stop shaking if they leave the app
+      socket.off("order_updated", handleOrderUpdate); // 👈 Cleanup here
+      Vibration.cancel();
     };
   }, [socket, queryClient]);
 };

@@ -1,295 +1,164 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
-  View, Text, StyleSheet, ScrollView, RefreshControl, 
-  TouchableOpacity, ActivityIndicator, Alert, Modal, 
-  TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard 
+  View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, 
+  TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, RefreshControl 
 } from 'react-native';
+import { SPACING, SHADOWS } from "../constants/theme";
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../context/authContext';
-import { useGetEarnings, useGetTransactions, useRequestPayout } from '../services/restaurant/restaurant.queries';
+import Header from '../components/HeaderTemp';
 import { useTheme } from '../context/themeContext';
-import HeaderTemp from '../components/HeaderTemp';
-import { SPACING, SHADOWS } from '../constants/theme';
-
-// Helper: Shorten Description
-const formatDescription = (text: string) => {
-  if (!text) return "Transaction";
-  return text.replace(/(Order #)([a-zA-Z0-9]{4})[a-zA-Z0-9-]+/, "$1$2");
-};
-
-// Helper: Format Date
-const formatDate = (dateString: string) => {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
-};
+import { useAuth } from '../context/authContext';
+import { useRestaurantEarnings, useRestaurantTransactions, useRequestPayout } from '../services/restaurant/restaurant.queries';
 
 export default function EarningsScreen() {
-  const { user } = useAuth();
   const { colors, isDark } = useTheme();
-  const restaurantId = user?.restaurant?.id;
+  const { restaurant } = useAuth();
+  const restaurantId = restaurant?.id || "";
 
-  // 1. Queries
-  const { data: earningsData, isLoading: isLoadingEarnings, refetch: refetchEarnings } = useGetEarnings(restaurantId || "");
-  const { data: transactionData, isLoading: isLoadingTx, refetch: refetchTx } = useGetTransactions(restaurantId || "");
-  const { mutate: requestPayout, isPending: isPayoutLoading } = useRequestPayout();
+  // Queries
+  const { data: earnings, isLoading: loadingEarnings, refetch: refetchEarnings } = useRestaurantEarnings(restaurantId);
+  const { data: transactions, isLoading: loadingTxns, refetch: refetchTxns } = useRestaurantTransactions(restaurantId);
+  const { mutate: payout, isPending: isPayingOut } = useRequestPayout();
 
-  // 2. Data
-  const earnings = earningsData?.data;
-  const available = earnings?.availableBalance || 0;
-  const pending = earnings?.pendingBalance || 0;
-  const transactions = transactionData?.data || [];
-
-  // 3. Modal State
-  const [isModalVisible, setModalVisible] = useState(false);
-  const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [bankName, setBankName] = useState('');
-  const [accountNumber, setAccountNumber] = useState('');
-  const [accountName, setAccountName] = useState('');
-
-  // Pre-fill amount when modal opens
-  useEffect(() => {
-    if (isModalVisible) {
-      setWithdrawAmount(available.toString());
-    }
-  }, [isModalVisible, available]);
+  // Modal State
+  const [modalVisible, setModalVisible] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [accountName, setAccountName] = useState("");
+  const [bankName, setBankName] = useState("");
 
   const onRefresh = () => {
     refetchEarnings();
-    refetchTx();
+    refetchTxns();
   };
 
-  // 4. Handlers
-  const handleOpenModal = () => {
-    if (available < 1000) {
-      Alert.alert("Low Balance", "Minimum withdrawal is ₦1,000");
-      return;
-    }
-    setModalVisible(true);
-  };
+  const handleWithdraw = () => {
+    const balance = earnings?.availableBalance || 0;
+    const withdrawAmount = parseFloat(amount);
 
-  const handleCloseModal = () => {
-    setModalVisible(false);
-  };
+    if (!withdrawAmount || withdrawAmount < 1000) return Alert.alert("Error", "Minimum withdrawal is ₦1,000");
+    if (withdrawAmount > balance) return Alert.alert("Error", "Insufficient funds");
+    if (!accountNumber || !accountName || !bankName) return Alert.alert("Error", "Please fill all bank details");
 
-  const handleSubmitPayout = () => {
-    // Basic Validation
-    if (!bankName || !accountNumber || !accountName || !withdrawAmount) {
-      Alert.alert("Missing Details", "Please fill in all bank details.");
-      return;
-    }
-    
-    const amountNum = Number(withdrawAmount);
-    if (isNaN(amountNum) || amountNum < 1000) {
-      Alert.alert("Invalid Amount", "Minimum withdrawal is ₦1,000");
-      return;
-    }
-
-    if (amountNum > available) {
-      Alert.alert("Insufficient Funds", "You cannot withdraw more than your available balance.");
-      return;
-    }
-
-    // Call API with Typed Payload
-    requestPayout(
-      { 
-        restaurantId: restaurantId || "", 
-        amount: amountNum,
-        bankDetails: { 
-          bankName,
-          accountNumber,
-          accountName
-        }
+    payout({
+      restaurantId,
+      amount: withdrawAmount,
+      bankDetails: { bankName, accountNumber, accountName }
+    }, {
+      onSuccess: () => {
+        setModalVisible(false);
+        setAmount(""); setAccountNumber(""); setAccountName(""); setBankName("");
+        Alert.alert("Success", "Payout request submitted successfully.");
       },
-      {
-        onSuccess: () => {
-          setModalVisible(false);
-          // Clear sensitive fields
-          setAccountNumber('');
-          setAccountName('');
-        }
-      }
+      onError: (err: any) => Alert.alert("Error", err.response?.data?.message || "Payout failed")
+    });
+  };
+
+  const renderTransaction = ({ item }: { item: any }) => {
+    const isCredit = item.type === 'CREDIT';
+    return (
+      <View style={[styles.txnRow, { backgroundColor: colors.surface }]}>
+        <View style={[styles.iconBox, { backgroundColor: isCredit ? (isDark ? '#064E3B' : '#DCFCE7') : (isDark ? '#7F1D1D' : '#FEE2E2') }]}>
+          <Ionicons name={isCredit ? "arrow-down" : "arrow-up"} size={18} color={isCredit ? colors.success : colors.danger} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.txnDesc, { color: colors.text }]}>{item.description || item.desc || "Transaction"}</Text>
+          <Text style={[styles.txnDate, { color: colors.textLight }]}>{new Date(item.createdAt || item.date).toLocaleDateString()}</Text>
+        </View>
+        <Text style={[styles.txnAmount, { color: isCredit ? colors.success : colors.danger }]}>
+          {isCredit ? '+' : '-'}₦{item.amount.toLocaleString()}
+        </Text>
+      </View>
     );
   };
 
-  const isLoading = isLoadingEarnings || isLoadingTx;
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <HeaderTemp title="Earnings" subtitle="Financial Overview" />
+      <Header title="Wallet" subtitle="Manage Earnings" showNotification={false} />
 
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={onRefresh} tintColor={colors.primary} />
-        }
-      >
-        {/* --- AVAILABLE BALANCE CARD --- */}
-        <View style={[styles.card, { backgroundColor: colors.primary }]}>
-          <View>
-            <Text style={[styles.cardLabel, { color: 'rgba(255,255,255,0.8)' }]}>Withdrawable Balance</Text>
-            <Text style={[styles.amount, { color: colors.white }]}>₦{available.toLocaleString()}</Text>
-            
-            <TouchableOpacity 
-              style={styles.withdrawButton}
-              onPress={handleOpenModal}
-              disabled={available < 1000}
-            >
-              <Text style={[styles.withdrawText, { color: colors.primary }]}>
-                {available < 1000 ? "Low Balance" : "Request Payout"}
-              </Text>
+      {/* 1. BALANCE CARD */}
+      <View style={[styles.balanceCard, { backgroundColor: colors.primary }]}>
+        <View>
+          <Text style={styles.balanceLabel}>Available Balance</Text>
+          <Text style={styles.balanceValue}>₦{(earnings?.availableBalance || 0).toLocaleString()}</Text>
+          <Text style={styles.pendingLabel}>Pending: ₦{(earnings?.pendingBalance || 0).toLocaleString()}</Text>
+        </View>
+        <TouchableOpacity 
+          style={styles.withdrawBtn} 
+          onPress={() => setModalVisible(true)}
+          disabled={loadingEarnings || (earnings?.availableBalance || 0) <= 0}
+        >
+          <Text style={styles.withdrawText}>Withdraw</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 2. TRANSACTIONS */}
+      <View style={styles.historyContainer}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Transaction History</Text>
+        <FlatList
+          data={transactions || []}
+          keyExtractor={(item) => item.id}
+          renderItem={renderTransaction}
+          refreshControl={<RefreshControl refreshing={loadingEarnings} onRefresh={onRefresh} tintColor={colors.primary}/>}
+          ListEmptyComponent={<Text style={{ textAlign:'center', marginTop:20, color:colors.textLight }}>No transactions yet.</Text>}
+          contentContainerStyle={{ paddingBottom: 100 }}
+        />
+      </View>
+
+      {/* 3. WITHDRAWAL MODAL */}
+      <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: isDark ? colors.surface : 'white' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Request Payout</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.label, { color: colors.text }]}>Amount (₦)</Text>
+            <TextInput 
+                style={[styles.input, { color: colors.text, backgroundColor: isDark ? colors.background : '#F3F4F6' }]} 
+                keyboardType="numeric" 
+                placeholder="0.00" 
+                placeholderTextColor={colors.textLight}
+                value={amount} 
+                onChangeText={setAmount} 
+            />
+
+            <Text style={[styles.label, { color: colors.text }]}>Bank Name</Text>
+            <TextInput 
+                style={[styles.input, { color: colors.text, backgroundColor: isDark ? colors.background : '#F3F4F6' }]} 
+                placeholder="e.g. Access Bank" 
+                placeholderTextColor={colors.textLight}
+                value={bankName} 
+                onChangeText={setBankName} 
+            />
+
+            <Text style={[styles.label, { color: colors.text }]}>Account Number</Text>
+            <TextInput 
+                style={[styles.input, { color: colors.text, backgroundColor: isDark ? colors.background : '#F3F4F6' }]} 
+                keyboardType="numeric" 
+                placeholder="0123456789" 
+                placeholderTextColor={colors.textLight}
+                value={accountNumber} 
+                onChangeText={setAccountNumber} 
+                maxLength={10} 
+            />
+
+            <Text style={[styles.label, { color: colors.text }]}>Account Name</Text>
+            <TextInput 
+                style={[styles.input, { color: colors.text, backgroundColor: isDark ? colors.background : '#F3F4F6' }]} 
+                placeholder="Account Holder Name" 
+                placeholderTextColor={colors.textLight}
+                value={accountName} 
+                onChangeText={setAccountName} 
+            />
+
+            <TouchableOpacity style={[styles.confirmBtn, { backgroundColor: colors.primary }]} onPress={handleWithdraw} disabled={isPayingOut}>
+              {isPayingOut ? <ActivityIndicator color="white" /> : <Text style={styles.confirmBtnText}>Confirm Payout</Text>}
             </TouchableOpacity>
           </View>
-          <View style={[styles.iconCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-            <Ionicons name="wallet" size={24} color={colors.white} />
-          </View>
-        </View>
-
-        {/* --- PENDING CARD --- */}
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.secondary, borderWidth: 1 }]}>
-          <View>
-            <Text style={[styles.cardLabel, { color: colors.textLight }]}>Pending Clearance</Text>
-            <Text style={[styles.amount, { color: colors.text }]}>₦{pending.toLocaleString()}</Text>
-            <Text style={[styles.note, { color: colors.secondary }]}>*Funds move to withdrawable after delivery</Text>
-          </View>
-          <View style={[styles.iconCircle, { backgroundColor: isDark ? 'rgba(255, 193, 7, 0.15)' : '#FFF8E1' }]}>
-            <Ionicons name="time" size={24} color={colors.secondary} />
-          </View>
-        </View>
-
-        {/* --- TRANSACTIONS LIST --- */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Transaction History</Text>
-          {transactions.length === 0 ? (
-            <View style={[styles.emptyState, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={{ color: colors.textLight }}>No transactions yet.</Text>
-            </View>
-          ) : (
-            /* ✅ FIX: Added borderWidth and borderColor 
-               This ensures the list is visible in Dark Mode where shadows are invisible.
-            */
-            <View style={[
-              styles.listContainer, 
-              { 
-                backgroundColor: colors.surface, 
-                borderColor: colors.border,
-                borderWidth: 1, 
-                ...SHADOWS.medium 
-              }
-            ]}>
-              {transactions.map((item: any) => (
-                <View key={item.id} style={[styles.transactionItem, { borderBottomColor: colors.border }]}>
-                  <View style={styles.transactionLeft}>
-                    <Text style={[styles.transactionTitle, { color: colors.text }]} numberOfLines={1}>
-                      {formatDescription(item.description)}
-                    </Text>
-                    <Text style={[styles.transactionDate, { color: colors.textLight }]}>{formatDate(item.createdAt)}</Text>
-                  </View>
-                  <View style={styles.transactionRight}>
-                    <Text style={[styles.transactionAmount, { color: item.type === 'CREDIT' ? '#10B981' : '#EF4444' }]}>
-                      {item.type === 'CREDIT' ? '+' : '-'} ₦{(item.amount || 0).toLocaleString()}
-                    </Text>
-                    <Text style={[styles.transactionStatus, { color: colors.textLight }]}>{item.status}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-      </ScrollView>
-
-      {/* --- 🏦 PAYOUT MODAL --- */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isModalVisible}
-        onRequestClose={handleCloseModal}
-      >
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.modalOverlay}
-        >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            {/* ✅ FIX: Changed colors.card to colors.surface */}
-            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
-              
-              <View style={styles.modalHandle} />
-
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Request Payout</Text>
-              <Text style={[styles.modalSubtitle, { color: colors.textLight }]}>
-                Enter your bank details to receive funds.
-              </Text>
-
-              {/* INPUTS */}
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Bank Name</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
-                  placeholder="e.g. GTBank"
-                  placeholderTextColor={colors.textLight}
-                  value={bankName}
-                  onChangeText={setBankName}
-                />
-              </View>
-
-              <View style={styles.row}>
-                <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
-                  <Text style={[styles.label, { color: colors.text }]}>Account Number</Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
-                    placeholder="0123456789"
-                    placeholderTextColor={colors.textLight}
-                    keyboardType="numeric"
-                    value={accountNumber}
-                    onChangeText={setAccountNumber}
-                  />
-                </View>
-                <View style={[styles.inputGroup, { flex: 0.7 }]}>
-                  <Text style={[styles.label, { color: colors.text }]}>Amount (₦)</Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
-                    value={withdrawAmount}
-                    onChangeText={setWithdrawAmount}
-                    keyboardType="numeric"
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Account Name</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
-                  placeholder="John Doe"
-                  placeholderTextColor={colors.textLight}
-                  value={accountName}
-                  onChangeText={setAccountName}
-                />
-              </View>
-
-              {/* ACTION BUTTONS */}
-              <View style={styles.modalActions}>
-                <TouchableOpacity 
-                  style={[styles.btnCancel, { borderColor: colors.border }]} 
-                  onPress={handleCloseModal}
-                >
-                  <Text style={{ color: colors.text }}>Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={[styles.btnConfirm, { backgroundColor: colors.primary }]} 
-                  onPress={handleSubmitPayout}
-                  disabled={isPayoutLoading}
-                >
-                  {isPayoutLoading ? (
-                    <ActivityIndicator color="white" />
-                  ) : (
-                    <Text style={{ color: 'white', fontWeight: 'bold' }}>Confirm Withdrawal</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-
-            </View>
-          </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -299,37 +168,28 @@ export default function EarningsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { padding: SPACING.l },
-  card: { borderRadius: 16, padding: SPACING.l, marginBottom: SPACING.m, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', ...SHADOWS.medium },
-  cardLabel: { fontSize: 14, marginBottom: SPACING.xs, fontWeight: '600' },
-  amount: { fontSize: 32, fontWeight: '800', marginBottom: 10 },
-  note: { fontSize: 11, marginTop: SPACING.s, fontStyle: 'italic', fontWeight: '500' },
-  iconCircle: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  withdrawButton: { backgroundColor: 'white', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, alignSelf: 'flex-start' },
-  withdrawText: { fontWeight: '700', fontSize: 12 },
-  section: { marginTop: SPACING.m, paddingBottom: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: SPACING.s },
-  emptyState: { padding: SPACING.l, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center' },
-  listContainer: { borderRadius: 12, overflow: 'hidden', elevation: 2 },
-  transactionItem: { flexDirection: 'row', justifyContent: 'space-between', padding: SPACING.m, borderBottomWidth: 1 },
-  transactionLeft: { flex: 1, marginRight: 10 },
-  transactionRight: { alignItems: 'flex-end' },
-  transactionTitle: { fontSize: 14, fontWeight: '600', marginBottom: 4 },
-  transactionDate: { fontSize: 12 },
-  transactionAmount: { fontSize: 14, fontWeight: '700' },
-  transactionStatus: { fontSize: 10, marginTop: 2, textTransform: 'uppercase' },
+  balanceCard: { margin: SPACING.m, padding: SPACING.l, borderRadius: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', ...SHADOWS.medium },
+  balanceLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 12, textTransform: 'uppercase', marginBottom: 4 },
+  balanceValue: { color: '#FFF', fontSize: 28, fontWeight: 'bold' },
+  pendingLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 4 },
+  withdrawBtn: { backgroundColor: 'white', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 25 },
+  withdrawText: { fontWeight: 'bold', fontSize: 12 }, // Color will be inherited or overridden
   
-  // MODAL STYLES
+  historyContainer: { flex: 1, paddingHorizontal: SPACING.m },
+  sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 15, marginTop: 10 },
+  txnRow: { flexDirection: 'row', alignItems: 'center', padding: SPACING.m, borderRadius: 12, marginBottom: 10, ...SHADOWS.small },
+  iconBox: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginRight: SPACING.m },
+  txnDesc: { fontWeight: '600', fontSize: 14, marginBottom: 2 },
+  txnDate: { fontSize: 12 },
+  txnAmount: { fontWeight: 'bold', fontSize: 16 },
+
+  // MODAL
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: SPACING.l, paddingBottom: 40, ...SHADOWS.medium },
-  modalHandle: { width: 40, height: 4, backgroundColor: '#E5E7EB', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 4 },
-  modalSubtitle: { fontSize: 14, marginBottom: 20 },
-  inputGroup: { marginBottom: 16 },
-  row: { flexDirection: 'row', justifyContent: 'space-between' },
-  label: { fontSize: 12, fontWeight: '600', marginBottom: 6 },
-  input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 16 },
-  modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-  btnCancel: { flex: 1, padding: 14, borderRadius: 12, borderWidth: 1, alignItems: 'center', marginRight: 10 },
-  btnConfirm: { flex: 2, padding: 14, borderRadius: 12, alignItems: 'center' },
+  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold' },
+  label: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
+  input: { borderRadius: 12, padding: 16, fontSize: 16, marginBottom: 16 },
+  confirmBtn: { padding: 16, borderRadius: 16, alignItems: 'center', marginTop: 10 },
+  confirmBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
 });

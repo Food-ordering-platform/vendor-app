@@ -118,50 +118,33 @@ export const useDeleteMenuItem = () => {
     },
   });
 };
-
-export const useGetEarnings = (restaurantId: string) => {
-  return useQuery<RestaurantEarningsResponse>({
-    queryKey: ["earnings", restaurantId],
+// Fetch Balance
+export const useRestaurantEarnings = (restaurantId: string) => {
+  return useQuery({
+    queryKey: ["restaurant-earnings", restaurantId],
     queryFn: () => restaurantService.getEarnings(restaurantId),
     enabled: !!restaurantId,
   });
 };
 
-export const useGetTransactions = (restaurantId: string) => {
-  return useQuery<TransactionResponse>({
-    // 👈 Add the generic type here
-    queryKey: ["transactions", restaurantId],
+// Fetch Transactions
+export const useRestaurantTransactions = (restaurantId: string) => {
+  return useQuery({
+    queryKey: ["restaurant-transactions", restaurantId],
     queryFn: () => restaurantService.getTransactions(restaurantId),
     enabled: !!restaurantId,
   });
 };
 
+// Request Payout
 export const useRequestPayout = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
-    // Explicitly type the mutation variable
-    mutationFn: (payload: PayoutRequestPayload) =>
-      restaurantService.requestPayout(payload),
-
+    mutationFn: (data: { restaurantId: string; amount: number; bankDetails: any }) => 
+      restaurantService.requestPayout(data.restaurantId, data.amount, data.bankDetails),
     onSuccess: (_, variables) => {
-      // Refresh Data
-      queryClient.invalidateQueries({
-        queryKey: ["earnings", variables.restaurantId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["transactions", variables.restaurantId],
-      });
-
-      Alert.alert(
-        "Success",
-        "Withdrawal request submitted! Admin will process it shortly."
-      );
-    },
-
-    onError: (error: any) => {
-      const msg = error.response?.data?.message || "Payout failed";
-      Alert.alert("Error", msg);
+      queryClient.invalidateQueries({ queryKey: ["restaurant-earnings", variables.restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["restaurant-transactions", variables.restaurantId] });
     },
   });
 };
