@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   RefreshControl, StatusBar, Switch, ActivityIndicator
@@ -9,6 +9,7 @@ import { useAuth } from "../context/authContext";
 import { useGetVendorOrders, useUpdateOrderStatus } from "../services/order/order.queries";
 import { Order, OrderStatus } from "../types/order.types";
  import { format } from "date-fns"; 
+import { getTimeAgo } from "@/hooks/usegetTime";
 
 // --- THEME COLORS ---
 const COLORS = {
@@ -45,6 +46,8 @@ export default function DashboardScreen() {
 
   const [activeTab, setActiveTab] = useState<TabType>("PENDING");
   const [isOnline, setIsOnline] = useState(true);
+  const [receivedAt] = useState(() => new Date());
+
 
   // Safe Access to Data
   // Depending on your API, response might be active array or { data: [] }
@@ -68,6 +71,17 @@ export default function DashboardScreen() {
       return false;
     });
   }, [orders, activeTab]);
+
+  const [, forceUpdate] = useState(0);
+
+useEffect(() => {
+  const interval = setInterval(() => {
+    forceUpdate(v => v + 1);
+  }, 60000); // update every minute
+
+  return () => clearInterval(interval);
+}, []);
+
 
   const handleStatusUpdate = (orderId: string, newStatus: OrderStatus) => {
     updateStatus({ orderId, status: newStatus });
@@ -147,13 +161,13 @@ export default function DashboardScreen() {
         {/* Card Header */}
         <View style={styles.cardHeader}>
             <View style={styles.orderIdRow}>
-                <Text style={styles.orderId}>#{item.reference ? item.reference.slice(-6).toUpperCase() : "ORDER"}</Text>
+                <Text style={styles.orderId}>#{item.id ? item.id.slice(-6).toUpperCase() : "ORDER"}</Text>
                 <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
                     <Ionicons name={statusIcon} size={14} color={statusColor} style={{marginRight: 4}} />
                     <Text style={[styles.statusTextBadge, { color: statusColor }]}>{item.status.replace(/_/g, " ")}</Text>
                 </View>
             </View>
-            <Text style={styles.timeAgo}>Just now</Text> 
+            <Text style={styles.timeAgo}>{getTimeAgo(receivedAt)}</Text> 
         </View>
 
         {/* Customer Info */}
@@ -204,7 +218,7 @@ export default function DashboardScreen() {
                         onPress={() => handleStatusUpdate(item.id, "PREPARING")}
                         disabled={isUpdating}
                     >
-                        {isUpdating ? <ActivityIndicator color="white" /> : <Text style={styles.btnPrimaryText}>Start Cooking</Text>}
+                        {isUpdating ? <ActivityIndicator color="white" /> : <Text style={styles.btnPrimaryText}>Accept</Text>}
                     </TouchableOpacity>
                 </>
              )}
