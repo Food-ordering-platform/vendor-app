@@ -1,15 +1,13 @@
-// food-ordering-platform/vendor-app/vendor-app-work-branch/context/authContext.tsx
-
 import React, { createContext, useContext, ReactNode } from 'react';
 import * as SecureStore from 'expo-secure-store'; 
 import { useQueryClient } from '@tanstack/react-query';
 import { LoginData, RegisterData, User, AuthResponse } from '../types/auth.types';
 import { useCurrentUser, useLogin, useRegister } from '../services/auth/auth.queries';
 
-// 1. Update the Interface
 interface AuthContextType {
   user: User | null;
-  isAuthenticated: boolean; // <--- ADD THIS
+  restaurant: any | null; // Helper to access restaurant quickly
+  isAuthenticated: boolean;
   isLoading: boolean;
   login: (data: LoginData) => Promise<AuthResponse>;
   register: (data: RegisterData) => Promise<AuthResponse>;
@@ -22,6 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
 
+  // 1. Fetch User (includes 'restaurant' object from backend)
   const { data: user, isLoading: isUserLoading, refetch } = useCurrentUser();
   const loginMutation = useLogin();
   const registerMutation = useRegister();
@@ -34,12 +33,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const res = await loginMutation.mutateAsync(data);
       
+      // If OTP is required, we don't set the token yet
       if (res.requireOtp) {
         return res; 
       }
 
+      // If valid token, save and force user fetch
       if (res.token) {
         await SecureStore.setItemAsync('auth_token', res.token);
+        
+        // [CRITICAL] Wait for the user data to be fetched before returning
+        // This ensures 'isAuthenticated' becomes true immediately
         await refetch(); 
       }
       return res;
@@ -50,8 +54,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const register = async (data: RegisterData): Promise<AuthResponse> => {
     try {
-      const res = await registerMutation.mutateAsync(data);
-      return res;
+      return await registerMutation.mutateAsync(data);
     } catch (error: any) {
       throw error;
     }
@@ -63,14 +66,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     queryClient.removeQueries({ queryKey: ['currentUser'] });
   };
 
-  // 2. Calculate isAuthenticated
+  // 2. Derived State
   const isAuthenticated = !!user; 
+  const restaurant = user?.restaurant || null;
 
   return (
     <AuthContext.Provider 
       value={{ 
         user: user || null, 
-        isAuthenticated, // <--- PASS THIS VALUE
+        restaurant,
+        isAuthenticated, 
         isLoading: isUserLoading, 
         login, 
         register, 

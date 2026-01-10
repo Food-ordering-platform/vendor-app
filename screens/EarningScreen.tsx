@@ -3,15 +3,17 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, 
   TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, RefreshControl 
 } from 'react-native';
-import { SPACING, SHADOWS } from "../constants/theme";
+import { SPACING, SHADOWS, COLORS } from "../constants/theme";
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../components/HeaderTemp';
 import { useTheme } from '../context/themeContext';
 import { useAuth } from '../context/authContext';
 import { useRestaurantEarnings, useRestaurantTransactions, useRequestPayout } from '../services/restaurant/restaurant.queries';
+import { Transaction } from '../types/restaurant.types';
 
 export default function EarningsScreen() {
   const { colors, isDark } = useTheme();
+  // [FIX] Access restaurant safely from updated context
   const { restaurant } = useAuth();
   const restaurantId = restaurant?.id || "";
 
@@ -54,18 +56,27 @@ export default function EarningsScreen() {
     });
   };
 
-  const renderTransaction = ({ item }: { item: any }) => {
+  const renderTransaction = ({ item }: { item: Transaction }) => {
     const isCredit = item.type === 'CREDIT';
+    
+    // [FIX] Date handling: Ensure createdAt is valid before parsing
+    const dateString = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'N/A';
+
     return (
       <View style={[styles.txnRow, { backgroundColor: colors.surface }]}>
         <View style={[styles.iconBox, { backgroundColor: isCredit ? (isDark ? '#064E3B' : '#DCFCE7') : (isDark ? '#7F1D1D' : '#FEE2E2') }]}>
-          <Ionicons name={isCredit ? "arrow-down" : "arrow-up"} size={18} color={isCredit ? colors.success : colors.danger} />
+          <Ionicons name={isCredit ? "arrow-down" : "arrow-up"} size={18} color={isCredit ? COLORS.success : COLORS.danger} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.txnDesc, { color: colors.text }]}>{item.description || item.desc || "Transaction"}</Text>
-          <Text style={[styles.txnDate, { color: colors.textLight }]}>{new Date(item.createdAt || item.date).toLocaleDateString()}</Text>
+          {/* [FIX] Use explicit description field from backend */}
+          <Text style={[styles.txnDesc, { color: colors.text }]}>
+            {item.description || "Transaction"}
+          </Text>
+          <Text style={[styles.txnDate, { color: colors.textLight }]}>
+            {dateString}
+          </Text>
         </View>
-        <Text style={[styles.txnAmount, { color: isCredit ? colors.success : colors.danger }]}>
+        <Text style={[styles.txnAmount, { color: isCredit ? COLORS.success : COLORS.danger }]}>
           {isCredit ? '+' : '-'}₦{item.amount.toLocaleString()}
         </Text>
       </View>
@@ -77,7 +88,7 @@ export default function EarningsScreen() {
       <Header title="Wallet" subtitle="Manage Earnings" showNotification={false} />
 
       {/* 1. BALANCE CARD */}
-      <View style={[styles.balanceCard, { backgroundColor: colors.primary }]}>
+      <View style={[styles.balanceCard, { backgroundColor: COLORS.primary }]}>
         <View>
           <Text style={styles.balanceLabel}>Available Balance</Text>
           <Text style={styles.balanceValue}>₦{(earnings?.availableBalance || 0).toLocaleString()}</Text>
@@ -88,7 +99,7 @@ export default function EarningsScreen() {
           onPress={() => setModalVisible(true)}
           disabled={loadingEarnings || (earnings?.availableBalance || 0) <= 0}
         >
-          <Text style={styles.withdrawText}>Withdraw</Text>
+          <Text style={[styles.withdrawText, { color: COLORS.primary }]}>Withdraw</Text>
         </TouchableOpacity>
       </View>
 
@@ -99,8 +110,12 @@ export default function EarningsScreen() {
           data={transactions || []}
           keyExtractor={(item) => item.id}
           renderItem={renderTransaction}
-          refreshControl={<RefreshControl refreshing={loadingEarnings} onRefresh={onRefresh} tintColor={colors.primary}/>}
-          ListEmptyComponent={<Text style={{ textAlign:'center', marginTop:20, color:colors.textLight }}>No transactions yet.</Text>}
+          refreshControl={<RefreshControl refreshing={loadingTxns} onRefresh={onRefresh} tintColor={COLORS.primary}/>}
+          ListEmptyComponent={
+            <Text style={{ textAlign:'center', marginTop:20, color:colors.textLight }}>
+              No transactions yet.
+            </Text>
+          }
           contentContainerStyle={{ paddingBottom: 100 }}
         />
       </View>
@@ -108,17 +123,17 @@ export default function EarningsScreen() {
       {/* 3. WITHDRAWAL MODAL */}
       <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: isDark ? colors.surface : 'white' }]}>
+          <View style={[styles.modalContent, { backgroundColor: isDark ? '#1F2937' : 'white' }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Request Payout</Text>
+              <Text style={[styles.modalTitle, { color: isDark ? 'white' : 'black' }]}>Request Payout</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color={colors.text} />
+                <Ionicons name="close" size={24} color={isDark ? 'white' : 'black'} />
               </TouchableOpacity>
             </View>
 
-            <Text style={[styles.label, { color: colors.text }]}>Amount (₦)</Text>
+            <Text style={[styles.label, { color: isDark ? 'white' : 'black' }]}>Amount (₦)</Text>
             <TextInput 
-                style={[styles.input, { color: colors.text, backgroundColor: isDark ? colors.background : '#F3F4F6' }]} 
+                style={[styles.input, { color: isDark ? 'white' : 'black', backgroundColor: isDark ? '#374151' : '#F3F4F6' }]} 
                 keyboardType="numeric" 
                 placeholder="0.00" 
                 placeholderTextColor={colors.textLight}
@@ -126,18 +141,18 @@ export default function EarningsScreen() {
                 onChangeText={setAmount} 
             />
 
-            <Text style={[styles.label, { color: colors.text }]}>Bank Name</Text>
+            <Text style={[styles.label, { color: isDark ? 'white' : 'black' }]}>Bank Name</Text>
             <TextInput 
-                style={[styles.input, { color: colors.text, backgroundColor: isDark ? colors.background : '#F3F4F6' }]} 
+                style={[styles.input, { color: isDark ? 'white' : 'black', backgroundColor: isDark ? '#374151' : '#F3F4F6' }]} 
                 placeholder="e.g. Access Bank" 
                 placeholderTextColor={colors.textLight}
                 value={bankName} 
                 onChangeText={setBankName} 
             />
 
-            <Text style={[styles.label, { color: colors.text }]}>Account Number</Text>
+            <Text style={[styles.label, { color: isDark ? 'white' : 'black' }]}>Account Number</Text>
             <TextInput 
-                style={[styles.input, { color: colors.text, backgroundColor: isDark ? colors.background : '#F3F4F6' }]} 
+                style={[styles.input, { color: isDark ? 'white' : 'black', backgroundColor: isDark ? '#374151' : '#F3F4F6' }]} 
                 keyboardType="numeric" 
                 placeholder="0123456789" 
                 placeholderTextColor={colors.textLight}
@@ -146,16 +161,16 @@ export default function EarningsScreen() {
                 maxLength={10} 
             />
 
-            <Text style={[styles.label, { color: colors.text }]}>Account Name</Text>
+            <Text style={[styles.label, { color: isDark ? 'white' : 'black' }]}>Account Name</Text>
             <TextInput 
-                style={[styles.input, { color: colors.text, backgroundColor: isDark ? colors.background : '#F3F4F6' }]} 
+                style={[styles.input, { color: isDark ? 'white' : 'black', backgroundColor: isDark ? '#374151' : '#F3F4F6' }]} 
                 placeholder="Account Holder Name" 
                 placeholderTextColor={colors.textLight}
                 value={accountName} 
                 onChangeText={setAccountName} 
             />
 
-            <TouchableOpacity style={[styles.confirmBtn, { backgroundColor: colors.primary }]} onPress={handleWithdraw} disabled={isPayingOut}>
+            <TouchableOpacity style={[styles.confirmBtn, { backgroundColor: COLORS.primary }]} onPress={handleWithdraw} disabled={isPayingOut}>
               {isPayingOut ? <ActivityIndicator color="white" /> : <Text style={styles.confirmBtnText}>Confirm Payout</Text>}
             </TouchableOpacity>
           </View>
@@ -173,7 +188,7 @@ const styles = StyleSheet.create({
   balanceValue: { color: '#FFF', fontSize: 28, fontWeight: 'bold' },
   pendingLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 4 },
   withdrawBtn: { backgroundColor: 'white', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 25 },
-  withdrawText: { fontWeight: 'bold', fontSize: 12 }, // Color will be inherited or overridden
+  withdrawText: { fontWeight: 'bold', fontSize: 12 },
   
   historyContainer: { flex: 1, paddingHorizontal: SPACING.m },
   sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 15, marginTop: 10 },

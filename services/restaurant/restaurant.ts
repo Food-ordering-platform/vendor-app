@@ -151,10 +151,12 @@ export const restaurantService = {
 
   // [NEW] Request Payout
   requestPayout: async (restaurantId: string, amount: number, bankDetails: any) => {
+    // [FIX] Matched route to /payout
     const response = await api.post(`/restaurant/${restaurantId}/payout`, {
       amount,
       bankDetails
     });
     return response.data;
   },
+// ..
 };

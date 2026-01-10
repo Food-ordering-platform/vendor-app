@@ -1,5 +1,3 @@
-// food-ordering-platform/vendor-app/vendor-app-work-branch/screens/LoginScreen.tsx
-
 import React, { useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
@@ -7,8 +5,8 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useTheme } from "../context/themeContext";
-import { SPACING, SHADOWS } from "../constants/theme";
-import { useAuth } from "../context/authContext"; // Import Context only
+import { SPACING, SHADOWS, COLORS } from "../constants/theme";
+import { useAuth } from "../context/authContext"; 
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 export default function LoginScreen({ navigation }: any) {
@@ -17,7 +15,6 @@ export default function LoginScreen({ navigation }: any) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Use the login function from Context, not the mutation directly
   const { login } = useAuth(); 
 
   const handleLogin = async () => {
@@ -28,32 +25,32 @@ export default function LoginScreen({ navigation }: any) {
 
     try {
       setLoading(true);
+      // This will now await until the token is stored and user is fetched
       const data = await login({ email, password });
 
-      // 1. Check if OTP verification is required
+      // 1. Handle OTP Flow
       if (data.requireOtp) {
+        setLoading(false);
         navigation.navigate("VerifyOtp", {
-          token: data.token, // Temp token for verification
+          token: data.token, // Temp token
           email: data.user?.email || email,
         });
         return;
       }
 
-      // 2. Check Role (Double check)
-      // Note: Backend might return user even if not saved to context yet
+      // 2. Role Security Check
       if (data.user && data.user.role !== "VENDOR") {
+        setLoading(false);
         Alert.alert("Unauthorized", "This app is for Vendors only.");
-        // Optional: Call logout() here to clear the token if it was set
         return;
       }
 
-      // 3. Success - Context handles storage and state update
-      // Navigation to Dashboard is usually handled by the RootNavigator listening to 'user' state
-
+      // 3. Success
+      // Navigation is handled automatically by App.tsx observing 'user' state
+      
     } catch (error: any) {
-      Alert.alert("Login Failed", error.message || "Something went wrong");
-    } finally {
       setLoading(false);
+      // Error is already alerted by the mutation hook, but we catch here to stop loading
     }
   };
 
@@ -113,13 +110,13 @@ export default function LoginScreen({ navigation }: any) {
           </View>
 
           <TouchableOpacity onPress={() => navigation.navigate("ForgotPassword")}>
-            <Text style={[styles.forgotText, { color: colors.primary }]}>
+            <Text style={[styles.forgotText, { color: COLORS.primary }]}>
               Forgot Password?
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.primary }, loading && { opacity: 0.7 }]}
+            style={[styles.button, { backgroundColor: COLORS.primary }, loading && { opacity: 0.7 }]}
             onPress={handleLogin}
             disabled={loading}
           >
@@ -136,7 +133,7 @@ export default function LoginScreen({ navigation }: any) {
             New to ChowEasy?{" "}
           </Text>
           <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
-            <Text style={[styles.signupText, { color: colors.primary }]}>
+            <Text style={[styles.signupText, { color: COLORS.primary }]}>
               Become a Vendor
             </Text>
           </TouchableOpacity>
