@@ -1,8 +1,12 @@
 import api from "../axios";
 import {
+  BankDetails,
   CreateRestaurantPayload,
   PayoutRequestPayload,
+  RestaurantEarnings,
   RestaurantEarningsResponse,
+  Transaction,
+  TransactionResponse,
   UpdateRestaurantPayload,
 } from "../../types/restaurant.types";
 import { Platform } from "react-native";
@@ -135,28 +139,31 @@ export const restaurantService = {
     const response = await api.delete(`/restaurant/menu/${itemId}`);
     return response.data;
   },
+// ---------------- FINANCE ---------------- //
 
-  //getEarnings
-  // [NEW] Get Earnings (Balance)
-  getEarnings: async (restaurantId: string) => {
-    const response = await api.get(`/restaurant/${restaurantId}/earnings`);
+  // 7. Get Earnings (Returns clean object: { availableBalance, pendingBalance })
+  getEarnings: async (restaurantId: string): Promise<RestaurantEarnings> => {
+    // Type expectation: response.data = { success: true, data: RestaurantEarnings }
+    const response = await api.get<RestaurantEarningsResponse>(`/restaurant/${restaurantId}/earnings`);
     return response.data.data;
   },
 
-  // [NEW] Get Transactions (History)
-  getTransactions: async (restaurantId: string) => {
-    const response = await api.get(`/restaurant/${restaurantId}/transactions`);
+  // 8. Get Transactions (Returns array of Transactions)
+  getTransactions: async (restaurantId: string): Promise<Transaction[]> => {
+    // Type expectation: response.data = { success: true, data: Transaction[] }
+    const response = await api.get<TransactionResponse>(`/restaurant/${restaurantId}/transactions`);
     return response.data.data;
   },
 
-  // [NEW] Request Payout
-  requestPayout: async (restaurantId: string, amount: number, bankDetails: any) => {
-    // [FIX] Matched route to /payout
+  // 9. Request Payout
+  requestPayout: async (
+    restaurantId: string, 
+    amount: number, 
+    bankDetails: BankDetails
+  ) => {
     const response = await api.post(`/restaurant/${restaurantId}/payout`, {
       amount,
       bankDetails
     });
     return response.data;
-  },
-// ..
-};
+  }};

@@ -57,7 +57,16 @@ export interface Transaction {
   description: string;
   createdAt: string; // ISO Date string
   reference?: string;
+  // category: TransactionCategory[]
 }
+
+// export type TransactionCategory =
+//   | "ORDER_EARNING"
+//   | "DELIVERY_FEE"
+//   | "PLATFORM_FEE"
+//   | "WITHDRAWAL"
+//   | "REFUND";
+
 
 export interface TransactionResponse {
   success: boolean;
