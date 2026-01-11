@@ -5,14 +5,10 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "./constants/theme";
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./context/authContext";
-import { ActivityIndicator, View, Platform } from "react-native";
-// import { usePushNotifications } from "./hooks/usePushNotification";
+import { ActivityIndicator, View } from "react-native";
 import { useOrderNotification } from "./hooks/useOrderNotification";
 
 // Screens
@@ -31,6 +27,9 @@ import VerifyResetOtpScreen from "./screens/VerifyResetOtpScreen";
 import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import TermsScreen from "./screens/TermsScreen";
 import PrivacyScreen from './screens/PrivacyScreen';
+// 👇 Import the new screen
+import SetupLocationScreen from './screens/SetupLocationScreen';
+
 import { ThemeProvider } from "./context/themeContext";
 import { SocketProvider } from "./context/socketContext";
 
@@ -55,33 +54,19 @@ function VendorTabs() {
           shadowColor: "#000",
           shadowOpacity: 0.1,
           shadowRadius: 10,
-
-          // [FIX] Use calculated height instead of 'auto'
-          // 60px is the content area. We add the bottom inset to it.
           height: 60 + (insets.bottom > 0 ? insets.bottom : 10),
-
-          // [FIX] Push content up by the safe area amount
           paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
-
-          paddingTop: 10, // Top spacing for balance
+          paddingTop: 10,
         },
         tabBarIcon: ({ color, focused }) => {
           let iconName: any;
-          if (route.name === "Orders")
-            iconName = focused ? "fast-food" : "fast-food-outline";
-          else if (route.name === "Menu")
-            iconName = focused ? "restaurant" : "restaurant-outline";
-          else if (route.name === "Earnings")
-            iconName = focused ? "wallet" : "wallet-outline";
-          else if (route.name === "Profile")
-            iconName = focused ? "person" : "person-outline";
+          if (route.name === "Orders") iconName = focused ? "fast-food" : "fast-food-outline";
+          else if (route.name === "Menu") iconName = focused ? "restaurant" : "restaurant-outline";
+          else if (route.name === "Earnings") iconName = focused ? "wallet" : "wallet-outline";
+          else if (route.name === "Profile") iconName = focused ? "person" : "person-outline";
           return <Ionicons name={iconName} size={24} color={color} />;
         },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: "600",
-          marginBottom: 5, // [FIX] Add slight margin to separate text from bottom edge
-        },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: "600", marginBottom: 5 },
       })}
     >
       <Tab.Screen name="Orders" component={DashboardScreen} />
@@ -94,9 +79,8 @@ function VendorTabs() {
 
 // --- 2. NAVIGATION CONTROLLER ---
 function NavigationContent() {
-  const { isAuthenticated, isLoading, user } = useAuth(); // [FIX] Get 'user' to check restaurant status
-  // usePushNotifications(user)
-  useOrderNotification()
+  const { isAuthenticated, isLoading, user } = useAuth();
+  useOrderNotification();
 
   if (isLoading) {
     return (
@@ -111,20 +95,23 @@ function NavigationContent() {
       <StatusBar style="dark" />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
-          // [LOGIC] Check if user has a restaurant
           user?.restaurant ? (
-            // HAS RESTAURANT -> Go to Dashboard
+            // HAS RESTAURANT -> Main Dashboard
             <>
               <Stack.Screen name="Main" component={VendorTabs} />
               <Stack.Screen name="AddMenuItem" component={AddMenuItemScreen} />
+              <Stack.Screen name="SetupLocation" component={SetupLocationScreen} />
             </>
           ) : (
-            // NO RESTAURANT -> Go to Profile (Setup Mode)
-            <Stack.Screen
-              name="Profile"
-              component={ProfileScreen}
-              initialParams={{ isOnboarding: true }} // Tell profile screen we are in setup mode
-            />
+            // NO RESTAURANT -> Setup Flow
+            <>
+              <Stack.Screen
+                name="Profile"
+                component={ProfileScreen}
+                initialParams={{ isOnboarding: true }}
+              />
+              <Stack.Screen name="SetupLocation" component={SetupLocationScreen} />
+            </>
           )
         ) : (
           // NOT LOGGED IN -> Auth Flow
@@ -134,20 +121,11 @@ function NavigationContent() {
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Signup" component={SignupScreen} />
             <Stack.Screen name="Terms" component={TermsScreen} />
-  <Stack.Screen name="Privacy" component={PrivacyScreen} />
+            <Stack.Screen name="Privacy" component={PrivacyScreen} />
             <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
-            <Stack.Screen
-              name="ForgotPassword"
-              component={ForgotPasswordScreen}
-            />
-            <Stack.Screen
-              name="VerifyResetOtp"
-              component={VerifyResetOtpScreen}
-            />
-            <Stack.Screen
-              name="ResetPassword"
-              component={ResetPasswordScreen}
-            />
+            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+            <Stack.Screen name="VerifyResetOtp" component={VerifyResetOtpScreen} />
+            <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
           </>
         )}
       </Stack.Navigator>

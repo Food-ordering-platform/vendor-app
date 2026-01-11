@@ -55,6 +55,8 @@ export default function VerifyOtpScreen({ navigation, route }: any) {
         // Typically, the AppNavigator detects 'user' in context and switches stacks automatically.
         // If not, we explicitly reset to Dashboard to be safe.
         // navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] }); 
+        navigation.navigate()
+        
       } else {
         Alert.alert("Error", "Verification successful but no token received.");
       }
