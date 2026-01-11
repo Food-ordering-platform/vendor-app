@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCreateRestaurant, useUpdateRestaurant } from '../services/restaurant/restaurant.queries';
 
 export default function ProfileScreen({ navigation, route }: any) {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const { colors, isDark, setMode } = useTheme();
   
   const isSetupMode = route.params?.isOnboarding || false;
@@ -26,22 +26,20 @@ export default function ProfileScreen({ navigation, route }: any) {
   const [email, setEmail] = useState(user?.restaurant?.email || user?.email || ""); 
   const [isOpen, setIsOpen] = useState(user?.restaurant?.isOpen ?? true);
   
-  // 📍 NEW: Coordinates State
+  // Coordinates State
   const [coordinates, setCoordinates] = useState({
     lat: user?.restaurant?.latitude || 0,
     lng: user?.restaurant?.longitude || 0
   });
   
-  // Image State
   const [image, setImage] = useState(user?.restaurant?.imageUrl || null); 
   const [newImageUri, setNewImageUri] = useState<string | null>(null);
 
-  // Hooks
   const { mutate: createRestaurant, isPending: isCreating } = useCreateRestaurant();
   const { mutate: updateRestaurant, isPending: isUpdating } = useUpdateRestaurant();
   const isPending = isCreating || isUpdating;
 
-  // 🔄 NEW: Listen for data coming back from the Map Screen
+  // Listen for data coming back from the Map Screen
   useEffect(() => {
     if (route.params?.selectedAddress) {
       setAddress(route.params.selectedAddress);
@@ -78,7 +76,6 @@ export default function ProfileScreen({ navigation, route }: any) {
       return;
     }
 
-    // 🚀 We now include latitude and longitude in the payload
     const payload = {
       name: restaurantName,
       address,
@@ -87,19 +84,13 @@ export default function ProfileScreen({ navigation, route }: any) {
       prepTime,
       isOpen,
       imageUri: newImageUri,
-      latitude: coordinates.lat,  // Important for Geolocation
+      latitude: coordinates.lat,
       longitude: coordinates.lng 
     };
 
-    const onSuccess = () => {
+    const onSuccess = async () => {
+       await refreshUser(); 
        Alert.alert("Success", hasRestaurant ? "Profile Updated!" : "Restaurant is Live!");
-       if (isSetupMode || !hasRestaurant) {
-          // Force reload or navigate
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Main' }],
-          });
-       }
     };
 
     if (hasRestaurant) {
@@ -138,7 +129,7 @@ export default function ProfileScreen({ navigation, route }: any) {
         {/* --- FORM CONTENT --- */}
         <View style={styles.formContainer}>
           
-          {/* Restaurant Details Section */}
+          {/* 1. Restaurant Details */}
           <View style={[styles.section, { backgroundColor: colors.surface }]}>
             <View style={styles.sectionHeader}>
               <Ionicons name="restaurant" size={20} color={colors.primary} />
@@ -156,12 +147,11 @@ export default function ProfileScreen({ navigation, route }: any) {
               />
             </View>
 
-            {/* 📍 ADDRESS INPUT (NOW CLICKABLE) */}
             <View style={styles.inputWrapper}>
               <Text style={[styles.inputLabel, { color: colors.text }]}>Address</Text>
               <TouchableOpacity 
                 activeOpacity={0.7}
-                onPress={() => navigation.navigate('SetupLocation')} // Opens Map Screen
+                onPress={() => navigation.navigate('SetupLocation')}
               >
                 <View style={[styles.input, { 
                   borderColor: colors.border, 
@@ -169,12 +159,7 @@ export default function ProfileScreen({ navigation, route }: any) {
                   alignItems: 'center',
                   backgroundColor: isDark ? '#1F2937' : '#F9FAFB'
                 }]}>
-                  <Ionicons 
-                    name="location" 
-                    size={18} 
-                    color={COLORS.primary} 
-                    style={{ marginRight: 8 }} 
-                  />
+                  <Ionicons name="location" size={18} color={COLORS.primary} style={{ marginRight: 8 }} />
                   <Text 
                     style={{ 
                       color: address ? colors.text : colors.textLight,
@@ -191,9 +176,13 @@ export default function ProfileScreen({ navigation, route }: any) {
             </View>
           </View>
 
-          {/* Contact Information Section */}
+          {/* 2. Contact Info & Prep Time */}
           <View style={[styles.section, { backgroundColor: colors.surface }]}>
-             {/* ... Keep existing Contact inputs (Phone, Email, Prep Time) ... */}
+            <View style={styles.sectionHeader}>
+              <Ionicons name="call" size={20} color={colors.primary} />
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Contact Info</Text>
+            </View>
+
              <View style={styles.inputWrapper}>
               <Text style={[styles.inputLabel, { color: colors.text }]}>Phone Number</Text>
               <TextInput
@@ -213,12 +202,42 @@ export default function ProfileScreen({ navigation, route }: any) {
                 onChangeText={setEmail}
                 placeholder="business@example.com"
                 keyboardType="email-address"
+                autoCapitalize="none"
+                placeholderTextColor={colors.textLight}
+              />
+            </View>
+
+            {/* ✅ PREP TIME ADDED */}
+            <View style={styles.inputWrapper}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Prep Time (mins)</Text>
+              <TextInput
+                style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+                value={prepTime}
+                onChangeText={setPrepTime}
+                placeholder="20"
+                keyboardType="numeric"
                 placeholderTextColor={colors.textLight}
               />
             </View>
           </View>
 
-          {/* Save Button */}
+          {/* 3. ✅ SETTINGS (TOGGLE ADDED) */}
+          <View style={[styles.section, { backgroundColor: colors.surface }]}>
+             <View style={styles.sectionHeader}>
+                <Ionicons name="settings" size={20} color={colors.primary} />
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Settings</Text>
+             </View>
+             <View style={[styles.toggleItem, { borderColor: isDark ? '#374151' : '#E5E7EB' }]}>
+                <Text style={{color: colors.text, fontWeight: '600', fontSize: 15}}>Accepting Orders</Text>
+                <Switch
+                    value={isOpen}
+                    onValueChange={setIsOpen}
+                    trackColor={{ false: "#D1D5DB", true: colors.success + '80' }}
+                    thumbColor={isOpen ? colors.success : "#9CA3AF"}
+                />
+             </View>
+          </View>
+
           <TouchableOpacity
             style={[styles.saveButton, { backgroundColor: colors.primary }]}
             onPress={handleSave}
@@ -232,6 +251,16 @@ export default function ProfileScreen({ navigation, route }: any) {
               </Text>
             )}
           </TouchableOpacity>
+
+          {/* Sign Out Button (Only if has restaurant or setup mode) */}
+          <TouchableOpacity 
+            onPress={logout} 
+            style={[styles.logoutButton, { backgroundColor: colors.danger + '15' }]}
+          >
+            <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+            <Text style={[styles.logoutText, { color: colors.danger }]}>Sign Out</Text>
+          </TouchableOpacity>
+
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -255,6 +284,17 @@ const styles = StyleSheet.create({
   inputLabel: { fontSize: 12, fontWeight: '700', marginBottom: 6, textTransform: 'uppercase', opacity: 0.7 },
   input: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 15 },
   
+  toggleItem: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingVertical: 8,
+    borderBottomWidth: 0 // Clean look
+  },
+  
   saveButton: { padding: 18, borderRadius: 14, alignItems: 'center', marginTop: 10, ...SHADOWS.medium },
   saveButtonText: { color: 'white', fontSize: 16, fontWeight: '800' },
+
+  logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 16, gap: 8, marginTop: 10 },
+  logoutText: { fontSize: 15, fontWeight: '700' }
 });

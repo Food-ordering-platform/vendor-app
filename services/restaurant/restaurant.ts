@@ -75,7 +75,7 @@ export const restaurantService = {
   createRestaurant: async (data: CreateRestaurantPayload) => {
     const formData = createFormData(data);
     const response = await api.post("/restaurant", formData, {
-      headers: { Accept: "application/json" },
+      headers: { Accept: "application/json", "Content-Type":"multipart/form-data" },
       transformRequest: (data) => data,
     });
     return response.data;

@@ -69,7 +69,7 @@ export default function DashboardScreen() {
         <Text style={styles.dateText}>{format(new Date(), "EEEE, d MMMM")}</Text>
         <Text style={styles.restaurantName}>{user?.restaurant?.name || "My Restaurant"}</Text>
       </View>
-      <View style={styles.statusContainer}>
+      {/* <View style={styles.statusContainer}>
         <Text style={[styles.statusText, { color: isOnline ? COLORS.success : COLORS.textLight }]}>
             {isOnline ? "Online" : "Closed"}
         </Text>
@@ -78,7 +78,7 @@ export default function DashboardScreen() {
             trackColor={{ false: "#E5E7EB", true: COLORS.primary }}
             thumbColor={"white"}
         />
-      </View>
+      </View> */}
     </View>
   );
 
