@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  RefreshControl, StatusBar, Switch, ActivityIndicator
+  RefreshControl, StatusBar, ActivityIndicator
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -28,7 +28,7 @@ const COLORS = {
 };
 
 type TabType = "PENDING" | "PREPARING" | "HISTORY";
-const PLATFORM_FEE = 350; // Hardcoded for display logic
+const PLATFORM_FEE = 350;
 
 export default function DashboardScreen() {
   const { user } = useAuth();
@@ -38,8 +38,6 @@ export default function DashboardScreen() {
   const { mutate: updateStatus, isPending: isUpdating } = useUpdateOrderStatus();
 
   const [activeTab, setActiveTab] = useState<TabType>("PENDING");
-  const [isOnline, setIsOnline] = useState(true);
-  const [receivedAt] = useState(() => new Date());
   const [, forceUpdate] = useState(0);
 
   // Safe Data Access
@@ -69,16 +67,6 @@ export default function DashboardScreen() {
         <Text style={styles.dateText}>{format(new Date(), "EEEE, d MMMM")}</Text>
         <Text style={styles.restaurantName}>{user?.restaurant?.name || "My Restaurant"}</Text>
       </View>
-      {/* <View style={styles.statusContainer}>
-        <Text style={[styles.statusText, { color: isOnline ? COLORS.success : COLORS.textLight }]}>
-            {isOnline ? "Online" : "Closed"}
-        </Text>
-        <Switch 
-            value={isOnline} onValueChange={setIsOnline}
-            trackColor={{ false: "#E5E7EB", true: COLORS.primary }}
-            thumbColor={"white"}
-        />
-      </View> */}
     </View>
   );
 
@@ -121,16 +109,14 @@ export default function DashboardScreen() {
     if (item.status === 'READY_FOR_PICKUP') { statusColor = '#8B5CF6'; statusBg = '#F3E8FF'; statusIcon = 'bicycle-outline'; }
     if (item.status === 'DELIVERED') { statusColor = COLORS.success; statusBg = '#ECFDF5'; statusIcon = 'checkmark-circle-outline'; }
 
-    // 💰 FINANCIAL BREAKDOWN LOGIC
     const foodSubtotal = item.totalAmount - item.deliveryFee - PLATFORM_FEE;
     const chowEazyShare = foodSubtotal * 0.15;
-    const vendorShare = item.vendorFoodTotal; // Calculated by backend now
+    const vendorShare = item.vendorFoodTotal;
 
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
             <View style={styles.orderIdRow}>
-                {/* ✅ FIX 1: Display Reference */}
                 <Text style={styles.orderId}>
                     #{item.reference ? item.reference.slice(0, 6).toUpperCase() : "ORDER"}
                 </Text>
@@ -155,7 +141,7 @@ export default function DashboardScreen() {
             </View>
         </View>
 
-        {/* 🧩 FIX 3: Breakdown Card (Design Logic) */}
+        {/* Breakdown Card */}
         {activeTab === 'PENDING' && (
           <View style={styles.breakdownContainer}>
               <View style={styles.breakdownRow}>
@@ -176,17 +162,17 @@ export default function DashboardScreen() {
           </View>
         )}
 
-        {/* Order Items (Collapsed View) */}
+        {/* --- MODIFIED ITEMS CONTAINER --- */}
         <View style={styles.itemsContainer}>
             <Text style={styles.itemsHeader}>{item.items.length} Items</Text>
-            {item.items.slice(0, 2).map((i, index) => (
-                <Text key={index} style={styles.itemName} numberOfLines={1}>
+            
+            {/* ✅ SHOW ALL ITEMS: Removed .slice(0,2) and the condition for "more items" */}
+            {item.items.map((i, index) => (
+                <Text key={index} style={styles.itemName}>
                     {i.quantity}x {i.menuItemName}
                 </Text>
             ))}
-            {item.items.length > 2 && <Text style={styles.moreItems}>+ {item.items.length - 2} more...</Text>}
             
-            {/* ✅ FIX 2: Total Earnings is now Vendor Share */}
             {activeTab !== 'PENDING' && (
                 <View style={styles.totalRow}>
                     <Text style={styles.totalLabel}>Your Earning</Text>
@@ -234,7 +220,6 @@ export default function DashboardScreen() {
              )}
 
              {/* 3. READY FOR PICKUP */}
-            {/* 3. READY FOR PICKUP (BROADCASTING vs FOUND) */}
              {item.status === "READY_FOR_PICKUP" && (
                  <>
                     {/* CASE A: RIDER ASSIGNED */}
@@ -252,7 +237,7 @@ export default function DashboardScreen() {
                              <TouchableOpacity onPress={() => {/* Call Logic */}}>
                                 <Ionicons name="call" size={20} color={COLORS.success} />
                              </TouchableOpacity>
-                         </View>
+                          </View>
                     ) : (
                     /* CASE B: LOOKING FOR RIDER */
                         <View style={styles.waitingState}>

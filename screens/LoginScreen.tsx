@@ -8,6 +8,8 @@ import { useTheme } from "../context/themeContext";
 import { SPACING, SHADOWS, COLORS } from "../constants/theme";
 import { useAuth } from "../context/authContext"; 
 import { SafeAreaProvider } from "react-native-safe-area-context";
+// 1. Import Schema
+import { loginSchema } from "../utils/schema";
 
 export default function LoginScreen({ navigation }: any) {
   const { colors, isDark } = useTheme();
@@ -15,42 +17,49 @@ export default function LoginScreen({ navigation }: any) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // 2. Error State
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+
   const { login } = useAuth(); 
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Error", "Please enter email and password");
+    // 3. Validate with Zod
+    const result = loginSchema.safeParse({ email, password });
+
+    if (!result.success) {
+      const formattedErrors: any = {};
+      result.error.issues.forEach((err) => {
+        if (err.path[0]) formattedErrors[err.path[0]] = err.message;
+      });
+      setErrors(formattedErrors);
       return;
     }
 
+    // Clear errors if valid
+    setErrors({});
+
     try {
       setLoading(true);
-      // This will now await until the token is stored and user is fetched
-      const data = await login({ email, password });
+      // Use validated data
+      const data = await login({ email: result.data.email, password: result.data.password });
 
-      // 1. Handle OTP Flow
       if (data.requireOtp) {
         setLoading(false);
         navigation.navigate("VerifyOtp", {
-          token: data.token, // Temp token
+          token: data.token,
           email: data.user?.email || email,
         });
         return;
       }
 
-      // 2. Role Security Check
       if (data.user && data.user.role !== "VENDOR") {
         setLoading(false);
         Alert.alert("Unauthorized", "This app is for Vendors only.");
         return;
       }
-
-      // 3. Success
-      // Navigation is handled automatically by App.tsx observing 'user' state
       
     } catch (error: any) {
       setLoading(false);
-      // Error is already alerted by the mutation hook, but we catch here to stop loading
     }
   };
 
@@ -78,35 +87,53 @@ export default function LoginScreen({ navigation }: any) {
         </View>
 
         <View style={styles.form}>
+          {/* EMAIL INPUT */}
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: colors.text }]}>Email Address</Text>
             <TextInput
               style={[
                 styles.input,
-                { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text },
+                { 
+                  backgroundColor: colors.surface, 
+                  borderColor: errors.email ? 'red' : colors.border, // Red border on error
+                  color: colors.text 
+                },
               ]}
               placeholder="vendor@choweasy.com"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                if (errors.email) setErrors({ ...errors, email: undefined });
+              }}
               keyboardType="email-address"
               autoCapitalize="none"
               placeholderTextColor={colors.textLight}
             />
+            {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
           </View>
 
+          {/* PASSWORD INPUT */}
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: colors.text }]}>Password</Text>
             <TextInput
               style={[
                 styles.input,
-                { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text },
+                { 
+                  backgroundColor: colors.surface, 
+                  borderColor: errors.password ? 'red' : colors.border, 
+                  color: colors.text 
+                },
               ]}
               placeholder="••••••••"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                if (errors.password) setErrors({ ...errors, password: undefined });
+              }}
               secureTextEntry
               placeholderTextColor={colors.textLight}
             />
+            {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
           </View>
 
           <TouchableOpacity onPress={() => navigation.navigate("ForgotPassword")}>
@@ -162,6 +189,7 @@ const styles = StyleSheet.create({
   inputGroup: { marginBottom: SPACING.l },
   label: { fontSize: 14, fontWeight: "600", marginBottom: 8 },
   input: { borderWidth: 1, borderRadius: 12, padding: 16, fontSize: 16 },
+  errorText: { color: 'red', fontSize: 12, marginTop: 4 }, // Added Error Style
   forgotText: { textAlign: "right", fontWeight: "600", marginBottom: SPACING.l },
   button: { paddingVertical: 18, borderRadius: 12, alignItems: "center", ...SHADOWS.small },
   buttonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "bold" },
