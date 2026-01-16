@@ -1,5 +1,5 @@
-import React from "react";
-import { NavigationContainer, LinkingOptions } from "@react-navigation/native"; // 👈 Import LinkingOptions
+import React, { useEffect } from "react"; // 👈 Added useEffect
+import { NavigationContainer, LinkingOptions } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
@@ -8,10 +8,13 @@ import { COLORS } from "./constants/theme";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./context/authContext";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, View, Platform } from "react-native"; // 👈 Added Platform
 import { useOrderNotification } from "./hooks/useOrderNotification";
 import * as Linking from "expo-linking";
-import { Toaster } from "./components/ui/Toast";
+import { Toaster, toast } from "./components/ui/Toast"; // 👈 Import 'toast' too
+
+// 🟢 Import the Hook
+import { useInstallPrompt } from "./hooks/useInstallPrompts";
 
 // Screens
 import OnboardingScreen from "./screens/OnboardingScreen";
@@ -38,7 +41,6 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const queryClient = new QueryClient();
 
-// 👇 CRITICAL FIX: Add type annotation <any> to ignore strict checking
 const linking: LinkingOptions<any> = {
   prefixes: [Linking.createURL('/'), 'https://vendor.choweazy.vercel.app'],
   config: {
@@ -53,8 +55,6 @@ const linking: LinkingOptions<any> = {
       ForgotPassword: 'forgot-password',
       VerifyResetOtp: 'verify-reset',
       ResetPassword: 'reset-password',
-
-      // Nested Navigator (Tabs)
       Main: {
         screens: {
           Orders: 'orders',
@@ -63,7 +63,6 @@ const linking: LinkingOptions<any> = {
           Profile: 'profile',
         },
       },
-      
       AddMenuItem: 'add-item',
       SetupLocation: 'setup-location',
     },
@@ -111,6 +110,24 @@ function VendorTabs() {
 function NavigationContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
   useOrderNotification();
+
+  // 🟢 GLOBAL INSTALL PROMPT LOGIC
+  const { isInstallable, triggerInstall } = useInstallPrompt();
+
+  useEffect(() => {
+    // Only show on Web and when browser says it's installable
+    if (Platform.OS === 'web' && isInstallable) {
+      toast.success("Install ChowEazy Vendor App", {
+        description: "Add to Home Screen for a better experience.",
+        duration: 8000, 
+        action: {
+          label: "Install",
+          onClick: () => triggerInstall()
+        }
+      });
+    }
+  }, [isInstallable]);
+
 
   if (isLoading) {
     return (
@@ -168,6 +185,7 @@ export default function App() {
           <SafeAreaProvider>
             <ThemeProvider>
               <NavigationContent />
+              {/* Toaster is available globally here */}
               <Toaster />
             </ThemeProvider>
           </SafeAreaProvider>
