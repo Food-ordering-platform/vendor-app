@@ -13,7 +13,7 @@
       "bundleIdentifier": "com.choweazy.vendor"
     },
     "android": {
-      "package":"com.choweazy.vendor",
+      "package": "com.choweazy.vendor",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -23,8 +23,24 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "static",
-      "favicon": "./assets/logo.png"
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/logo.png",
+      "name": "ChowEazy Vendor",
+      "shortName": "ChowEazy",
+      "lang": "en",
+      "themeColor": "#E6F4FE",
+      "backgroundColor": "#ffffff",
+      "display": "standalone",
+      "startUrl": "/",
+      "dir": "auto",
+      "orientation": "portrait",
+      "meta": {
+        "apple": {
+          "mobileWebAppCapable": "yes",
+          "mobileWebAppStatusBarStyle": "black-translucent"
+        }
+      }
     },
     "plugins": [
       [

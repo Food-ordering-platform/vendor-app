@@ -7,10 +7,10 @@ import api from "../services/axios";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true, // Keep for compatibility
+    shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
-    shouldShowBanner: true, // New required property (Pop-up)
+    shouldShowBanner: true,
     shouldShowList: true,
   }),
 });
@@ -18,6 +18,12 @@ Notifications.setNotificationHandler({
 export const usePushNotifications = (user: any) => {
   useEffect(() => {
     if (!user) return;
+
+    // 👈 WEB GUARD: Prevent native modules from running on web
+    if (Platform.OS === 'web') {
+      console.log("Push notifications skipped on web");
+      return; 
+    }
 
     const register = async () => {
       if (Platform.OS === "android") {
@@ -42,7 +48,6 @@ export const usePushNotifications = (user: any) => {
           return;
         }
 
-        // Get Token
         const projectId =
           Constants?.expoConfig?.extra?.eas?.projectId ??
           Constants?.easConfig?.projectId;
@@ -51,7 +56,6 @@ export const usePushNotifications = (user: any) => {
         });
         const token = tokenData.data;
 
-        // Send to Backend
         console.log("📲 Expo Push Token:", token);
         await api.post("/auth/push-token", { token });
       } else {

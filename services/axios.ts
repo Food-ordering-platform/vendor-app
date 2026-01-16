@@ -1,5 +1,6 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native"; // 👈 Import Platform
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -12,18 +13,23 @@ const api = axios.create({
   headers: {
     "Accept": "application/json",
   },
-  timeout: 60000, // 60 seconds (Good for slow image uploads)
+  timeout: 60000, 
 });
 
-// Add Token to requests
-// services/axios.ts
 // Add Token to requests
 api.interceptors.request.use(
   async (config) => {
     console.log(`🚀 Requesting: ${config.baseURL}${config.url}`);
     
-    // Ensure this key matches what AuthContext uses
-    const token = await SecureStore.getItemAsync("auth_token");
+    let token;
+    
+    // Check Platform to decide storage method
+    if (Platform.OS === 'web') {
+      token = localStorage.getItem("auth_token");
+    } else {
+      token = await SecureStore.getItemAsync("auth_token");
+    }
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

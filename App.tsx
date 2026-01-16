@@ -1,5 +1,5 @@
 import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, LinkingOptions } from "@react-navigation/native"; // 👈 Import LinkingOptions
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./context/authContext";
 import { ActivityIndicator, View } from "react-native";
 import { useOrderNotification } from "./hooks/useOrderNotification";
+import * as Linking from "expo-linking";
 
 // Screens
 import OnboardingScreen from "./screens/OnboardingScreen";
@@ -27,7 +28,6 @@ import VerifyResetOtpScreen from "./screens/VerifyResetOtpScreen";
 import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import TermsScreen from "./screens/TermsScreen";
 import PrivacyScreen from './screens/PrivacyScreen';
-// 👇 Import the new screen
 import SetupLocationScreen from './screens/SetupLocationScreen';
 
 import { ThemeProvider } from "./context/themeContext";
@@ -37,10 +37,40 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const queryClient = new QueryClient();
 
-// --- 1. THE TABS (Main App) ---
+// 👇 CRITICAL FIX: Add type annotation <any> to ignore strict checking
+const linking: LinkingOptions<any> = {
+  prefixes: [Linking.createURL('/'), 'https://vendor.choweazy.vercel.app'],
+  config: {
+    screens: {
+      Splash: 'splash',
+      Onboarding: 'welcome',
+      Login: 'login',
+      Signup: 'signup',
+      Terms: 'terms',
+      Privacy: 'privacy',
+      VerifyOtp: 'verify-otp',
+      ForgotPassword: 'forgot-password',
+      VerifyResetOtp: 'verify-reset',
+      ResetPassword: 'reset-password',
+
+      // Nested Navigator (Tabs)
+      Main: {
+        screens: {
+          Orders: 'orders',
+          Menu: 'menu',
+          Earnings: 'earnings',
+          Profile: 'profile',
+        },
+      },
+      
+      AddMenuItem: 'add-item',
+      SetupLocation: 'setup-location',
+    },
+  },
+};
+
 function VendorTabs() {
   const insets = useSafeAreaInsets();
-
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -77,7 +107,6 @@ function VendorTabs() {
   );
 }
 
-// --- 2. NAVIGATION CONTROLLER ---
 function NavigationContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
   useOrderNotification();
@@ -91,19 +120,17 @@ function NavigationContent() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking} fallback={<ActivityIndicator color={COLORS.primary} />}>
       <StatusBar style="dark" />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           user?.restaurant ? (
-            // HAS RESTAURANT -> Main Dashboard
             <>
               <Stack.Screen name="Main" component={VendorTabs} />
               <Stack.Screen name="AddMenuItem" component={AddMenuItemScreen} />
               <Stack.Screen name="SetupLocation" component={SetupLocationScreen} />
             </>
           ) : (
-            // NO RESTAURANT -> Setup Flow
             <>
               <Stack.Screen
                 name="Profile"
@@ -114,7 +141,6 @@ function NavigationContent() {
             </>
           )
         ) : (
-          // NOT LOGGED IN -> Auth Flow
           <>
             <Stack.Screen name="Splash" component={SplashScreen} />
             <Stack.Screen name="Onboarding" component={OnboardingScreen} />

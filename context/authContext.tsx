@@ -1,12 +1,13 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import * as SecureStore from 'expo-secure-store'; 
+import { Platform } from 'react-native'; // 👈 Import Platform
 import { useQueryClient } from '@tanstack/react-query';
 import { LoginData, RegisterData, User, AuthResponse } from '../types/auth.types';
 import { useCurrentUser, useLogin, useRegister } from '../services/auth/auth.queries';
 
 interface AuthContextType {
   user: User | null;
-  restaurant: any | null; // Helper to access restaurant quickly
+  restaurant: any | null; 
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (data: LoginData) => Promise<AuthResponse>;
@@ -17,10 +18,26 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// 👇 HELPER FUNCTIONS FOR STORAGE
+const saveToken = async (token: string) => {
+  if (Platform.OS === 'web') {
+    localStorage.setItem('auth_token', token);
+  } else {
+    await SecureStore.setItemAsync('auth_token', token);
+  }
+};
+
+const deleteToken = async () => {
+  if (Platform.OS === 'web') {
+    localStorage.removeItem('auth_token');
+  } else {
+    await SecureStore.deleteItemAsync('auth_token');
+  }
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
 
-  // 1. Fetch User (includes 'restaurant' object from backend)
   const { data: user, isLoading: isUserLoading, refetch } = useCurrentUser();
   const loginMutation = useLogin();
   const registerMutation = useRegister();
@@ -33,17 +50,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const res = await loginMutation.mutateAsync(data);
       
-      // If OTP is required, we don't set the token yet
       if (res.requireOtp) {
         return res; 
       }
 
-      // If valid token, save and force user fetch
       if (res.token) {
-        await SecureStore.setItemAsync('auth_token', res.token);
+        // 👇 USE HELPER FUNCTION (Safe for Web)
+        await saveToken(res.token);
         
-        // [CRITICAL] Wait for the user data to be fetched before returning
-        // This ensures 'isAuthenticated' becomes true immediately
         await refetch(); 
       }
       return res;
@@ -61,12 +75,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    await SecureStore.deleteItemAsync('auth_token');
+    // 👇 USE HELPER FUNCTION
+    await deleteToken();
     queryClient.setQueryData(['currentUser'], null);
     queryClient.removeQueries({ queryKey: ['currentUser'] });
   };
 
-  // 2. Derived State
   const isAuthenticated = !!user; 
   const restaurant = user?.restaurant || null;
 

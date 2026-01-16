@@ -1,129 +1,203 @@
-import React, { useState, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
-  View, Text, StyleSheet, FlatList, Animated, TouchableOpacity, 
-  Dimensions, SafeAreaView, Platform 
+  View, 
+  Text, 
+  FlatList, 
+  StyleSheet, 
+  useWindowDimensions, 
+  TouchableOpacity, 
+  Image,
+  SafeAreaView
 } from 'react-native';
+import { COLORS, SHADOWS } from '../constants/theme';
 import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../context/themeContext'; 
-import { SPACING } from '../constants/theme';
-
-const { width } = Dimensions.get('window');
 
 const SLIDES = [
-  { id: '1', title: 'Manage Your Menu', description: 'Easily add new dishes, update prices, and control availability instantly.', icon: 'restaurant' },
-  { id: '2', title: 'Live Order', description: 'Receive real-time order alerts. Accept, cook, and dispatch riders with one tap.', icon: 'notifications' },
-  { id: '3', title: 'Track Your Growth', description: 'Monitor your daily earnings and withdraw your funds whenever you need.', icon: 'wallet' },
+  {
+    id: '1',
+    title: 'Expand Your Reach',
+    subtitle: 'Connect with thousands of hungry customers in your area instantly.',
+  },
+  {
+    id: '2',
+    title: 'Manage Orders Easily',
+    subtitle: 'Track, process, and deliver orders efficiently with our tools.',
+  },
+  {
+    id: '3',
+    title: 'Boost Your Earnings',
+    subtitle: 'Grow your business with insights and fast payouts.',
+  },
 ];
 
 export default function OnboardingScreen({ navigation }: any) {
-  const { colors, isDark } = useTheme();
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollX = useRef(new Animated.Value(0)).current;
-  const slidesRef = useRef<FlatList>(null);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const flatListRef = useRef<FlatList>(null);
+  const { width, height } = useWindowDimensions();
 
-  const viewableItemsChanged = useRef(({ viewableItems }: any) => {
-    if (viewableItems && viewableItems.length > 0) {
-      setCurrentIndex(viewableItems[0].index);
-    }
-  }).current;
+  const skip = () => {
+    navigation.replace('Login');
+  };
 
-  const handleNext = () => {
-    if (currentIndex < SLIDES.length - 1) {
-      slidesRef.current?.scrollToIndex({ index: currentIndex + 1 });
+  const goToNextSlide = () => {
+    const nextSlideIndex = currentSlideIndex + 1;
+    
+    if (nextSlideIndex < SLIDES.length) {
+      const offset = nextSlideIndex * width;
+      flatListRef?.current?.scrollToOffset({ offset });
+      // 👇 FIX: Manually update state immediately (don't wait for scroll event)
+      setCurrentSlideIndex(nextSlideIndex); 
     } else {
       navigation.replace('Login');
     }
   };
 
-  const Paginator = ({ data, scrollX }: any) => {
-    return (
-      <View style={{ flexDirection: 'row', height: 64 }}>
-        {data.map((_: any, i: number) => {
-          const inputRange = [(i - 1) * width, i * width, (i + 1) * width];
-          const dotWidth = scrollX.interpolate({
-            inputRange, outputRange: [10, 20, 10], extrapolate: 'clamp',
-          });
-          const opacity = scrollX.interpolate({
-            inputRange, outputRange: [0.3, 1, 0.3], extrapolate: 'clamp',
-          });
-          return <Animated.View style={[styles.dot, { width: dotWidth, opacity, backgroundColor: colors.primary }]} key={i.toString()} />;
-        })}
-      </View>
-    );
+  const updateCurrentSlideIndex = (e: any) => {
+    const contentOffsetX = e.nativeEvent.contentOffset.x;
+    const currentIndex = Math.round(contentOffsetX / width);
+    setCurrentSlideIndex(currentIndex);
   };
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar style={isDark ? "light" : "dark"} />
-      
-      <View style={{ height: 20 }} />
+  const renderItem = ({ item }: { item: typeof SLIDES[0] }) => (
+    <View style={[styles.slide, { width, paddingTop: height * 0.1 }]}>
+      <Image 
+        source={item.image} 
+        style={[styles.image, { height: height * 0.4, width: width * 0.8 }]} 
+        resizeMode="contain" 
+      />
+      <View style={styles.textContainer}>
+        <Text style={styles.title}>{item.title}</Text>
+        <Text style={styles.subtitle}>{item.subtitle}</Text>
+      </View>
+    </View>
+  );
 
-      <View style={{ flex: 3 }}>
-        <FlatList
-          data={SLIDES}
-          renderItem={({ item }) => (
-            <View style={styles.slide}>
-              <View style={styles.iconContainer}>
-                {/* [FIX] Reduced circle size (0.6 instead of 0.75) */}
-                <View style={[styles.circleBackground, { backgroundColor: isDark ? '#374151' : '#FFE4E6' }]}>
-                  {/* [FIX] Reduced icon size */}
-                  <Ionicons name={item.icon as any} size={80} color={colors.primary} />
-                </View>
-              </View>
-              
-              <View style={styles.textContainer}>
-                <Text style={[styles.title, { color: colors.primary }]}>{item.title}</Text>
-                <Text style={[styles.description, { color: colors.textLight }]}>{item.description}</Text>
-              </View>
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
+      <FlatList
+        ref={flatListRef}
+        onMomentumScrollEnd={updateCurrentSlideIndex}
+        contentContainerStyle={{ height: height * 0.75 }}
+        showsHorizontalScrollIndicator={false}
+        horizontal
+        data={SLIDES}
+        pagingEnabled
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+        // 👇 ADDED: Prevents scroll interference on web
+        scrollEventThrottle={32}
+      />
+
+      <View style={[styles.footer, { height: height * 0.25 }]}>
+        <View style={styles.indicatorContainer}>
+          {SLIDES.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.indicator,
+                currentSlideIndex === index && styles.indicatorActive,
+              ]}
+            />
+          ))}
+        </View>
+
+        <View style={styles.btnContainer}>
+          {currentSlideIndex === SLIDES.length - 1 ? (
+            <TouchableOpacity style={styles.btn} onPress={skip}>
+              <Text style={styles.btnText}>GET STARTED</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ flexDirection: 'row' }}>
+              <TouchableOpacity 
+                activeOpacity={0.8} 
+                style={[styles.btn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: COLORS.primary }]} 
+                onPress={skip}
+              >
+                <Text style={[styles.btnText, { color: COLORS.primary }]}>SKIP</Text>
+              </TouchableOpacity>
+              <View style={{ width: 15 }} />
+              <TouchableOpacity 
+                activeOpacity={0.8} 
+                onPress={goToNextSlide} 
+                style={styles.btn}
+              >
+                <Text style={styles.btnText}>NEXT</Text>
+              </TouchableOpacity>
             </View>
           )}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          pagingEnabled
-          bounces={false}
-          keyExtractor={(item) => item.id}
-          onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: false })}
-          onViewableItemsChanged={viewableItemsChanged}
-          viewConfig={{ viewAreaCoveragePercentThreshold: 50 }}
-          ref={slidesRef}
-        />
-      </View>
-
-      <View style={styles.footer}>
-        <Paginator data={SLIDES} scrollX={scrollX} />
-        <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleNext}>
-          <Text style={styles.buttonText}>{currentIndex === SLIDES.length - 1 ? 'Get Started' : 'Next'}</Text>
-          {currentIndex !== SLIDES.length - 1 && <Ionicons name="arrow-forward" size={20} color="white" style={{ marginLeft: 8 }} />}
-        </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: Platform.OS === 'android' ? 30 : 0 },
-  slide: { width: width, alignItems: 'center', paddingHorizontal: SPACING.l },
-  iconContainer: { 
-    flex: 0.6, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    width: '100%', 
-    paddingTop: 20 
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
   },
-  // [FIX] Adjusted dimensions
-  circleBackground: {
-    width: width * 0.6, 
-    height: width * 0.6,
-    borderRadius: (width * 0.6) / 2,
-    justifyContent: 'center',
+  slide: {
     alignItems: 'center',
   },
-  textContainer: { flex: 0.4, alignItems: 'center', justifyContent: 'flex-start', paddingTop: SPACING.s },
-  title: { fontSize: 26, fontWeight: '800', marginBottom: SPACING.s, textAlign: 'center' },
-  description: { fontSize: 15, textAlign: 'center', lineHeight: 22, paddingHorizontal: SPACING.m },
-  footer: { flex: 1, justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.l, paddingBottom: SPACING.xl },
-  dot: { height: 10, borderRadius: 5, marginHorizontal: 8 },
-  button: { flexDirection: 'row', paddingVertical: 16, paddingHorizontal: 32, borderRadius: 30, alignItems: 'center', justifyContent: 'center', width: '80%', elevation: 5 },
-  buttonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  image: {
+    // Dynamic dimensions handled inline
+  },
+  textContainer: {
+    paddingHorizontal: 20,
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  title: {
+    color: COLORS.text,
+    fontSize: 28,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  subtitle: {
+    color: COLORS.textLight,
+    fontSize: 14,
+    textAlign: 'center',
+    maxWidth: '80%',
+    lineHeight: 22,
+  },
+  footer: {
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 50,
+  },
+  indicatorContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  indicator: {
+    height: 4,
+    width: 10,
+    backgroundColor: '#D9D9D9',
+    marginHorizontal: 3,
+    borderRadius: 2,
+  },
+  indicatorActive: {
+    backgroundColor: COLORS.primary,
+    width: 25,
+  },
+  btnContainer: {
+    marginBottom: 20,
+  },
+  btn: {
+    flex: 1,
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...SHADOWS.small,
+  },
+  btnText: {
+    fontWeight: 'bold',
+    fontSize: 15,
+    color: '#fff',
+  },
 });
