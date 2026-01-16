@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  RefreshControl, StatusBar, ActivityIndicator
+  RefreshControl, StatusBar, ActivityIndicator, Platform // 👈 Added Platform
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -10,6 +10,10 @@ import { useGetVendorOrders, useUpdateOrderStatus } from "../services/order/orde
 import { Order, OrderStatus } from "../types/order.types";
 import { format } from "date-fns"; 
 import { getTimeAgo } from "@/hooks/usegetTime";
+
+// 🟢 1. Import Hooks & Toast
+import { useInstallPrompt } from '../hooks/useInstallPrompts';
+import { toast } from '../components/ui/Toast';
 
 // --- THEME COLORS ---
 const COLORS = {
@@ -40,6 +44,23 @@ export default function DashboardScreen() {
   const [activeTab, setActiveTab] = useState<TabType>("PENDING");
   const [, forceUpdate] = useState(0);
 
+  // 🟢 2. Use Install Prompt Hook
+  const { isInstallable, triggerInstall } = useInstallPrompt();
+
+  // 🟢 3. Trigger Toast on Web when Installable
+  useEffect(() => {
+    if (Platform.OS === 'web' && isInstallable) {
+      toast.success("Install ChowEazy Vendor App", {
+        description: "Add to Home Screen for a better experience.",
+        duration: 8000, 
+        action: {
+          label: "Install",
+          onClick: () => triggerInstall()
+        }
+      });
+    }
+  }, [isInstallable]);
+
   // Safe Data Access
   const orders: Order[] = Array.isArray(ordersResponse) ? ordersResponse : (ordersResponse?.data || []);
 
@@ -67,6 +88,13 @@ export default function DashboardScreen() {
         <Text style={styles.dateText}>{format(new Date(), "EEEE, d MMMM")}</Text>
         <Text style={styles.restaurantName}>{user?.restaurant?.name || "My Restaurant"}</Text>
       </View>
+      
+      {/* Optional: Add a manual install button here if you want it visible always */}
+      {Platform.OS === 'web' && isInstallable && (
+        <TouchableOpacity onPress={triggerInstall} style={{ padding: 8 }}>
+           <Ionicons name="download-outline" size={24} color={COLORS.primary} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -166,7 +194,6 @@ export default function DashboardScreen() {
         <View style={styles.itemsContainer}>
             <Text style={styles.itemsHeader}>{item.items.length} Items</Text>
             
-            {/* ✅ SHOW ALL ITEMS: Removed .slice(0,2) and the condition for "more items" */}
             {item.items.map((i, index) => (
                 <Text key={index} style={styles.itemName}>
                     {i.quantity}x {i.menuItemName}

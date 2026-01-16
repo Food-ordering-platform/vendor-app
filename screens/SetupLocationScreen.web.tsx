@@ -12,6 +12,15 @@ declare global {
   }
 }
 
+// 🟢 1. DEFINE DELTA STATE BOUNDARIES
+// (Approximate coordinates covering Warri, Asaba, Ughelli, Sapele)
+const DELTA_BOUNDS = {
+  north: 6.50,
+  south: 5.00,
+  west: 5.00,
+  east: 6.90,
+};
+
 export default function SetupLocationScreen({ navigation, route }: any) {
   const { user } = useAuth();
   const mapRef = useRef<HTMLDivElement>(null);
@@ -23,7 +32,9 @@ export default function SetupLocationScreen({ navigation, route }: any) {
   const [address, setAddress] = useState<string>("Locating...");
   const [loading, setLoading] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
-  const [center, setCenter] = useState({ lat: 6.5244, lng: 3.3792 }); 
+  
+  // 🟢 2. CHANGED DEFAULT CENTER TO WARRI (Instead of Lagos)
+  const [center, setCenter] = useState({ lat: 5.5544, lng: 5.7932 }); 
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -42,12 +53,21 @@ export default function SetupLocationScreen({ navigation, route }: any) {
       zoom: 15,
       disableDefaultUI: true, 
       clickableIcons: false,
+      // 🟢 3. RESTRICT MAP DRAGGING TO DELTA AREA (Optional but good)
+      restriction: {
+        latLngBounds: DELTA_BOUNDS,
+        strictBounds: false,
+      },
     });
     googleMapRef.current = map;
 
     if (inputRef.current) {
       const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
         fields: ["geometry", "formatted_address", "name"],
+        // 🟢 4. STRICTLY LIMIT SEARCH TO DELTA
+        bounds: DELTA_BOUNDS,
+        strictBounds: true,
+        componentRestrictions: { country: "ng" } // Ensure it's Nigeria
       });
       autocomplete.bindTo("bounds", map);
 
@@ -96,6 +116,16 @@ export default function SetupLocationScreen({ navigation, route }: any) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
+          
+          // 🟢 5. OPTIONAL CHECK: ONLY MOVE IF USER IS IN DELTA
+          // (Simple bounds check before moving map)
+          if (latitude < DELTA_BOUNDS.south || latitude > DELTA_BOUNDS.north || 
+              longitude < DELTA_BOUNDS.west || longitude > DELTA_BOUNDS.east) {
+             alert("You are outside our service area (Delta State).");
+             setIsLocating(false);
+             return;
+          }
+
           if (googleMapRef.current) {
             const userLoc = { lat: latitude, lng: longitude };
             googleMapRef.current.panTo(userLoc);
@@ -161,7 +191,7 @@ export default function SetupLocationScreen({ navigation, route }: any) {
                 style: {
                     flex: 1, border: 'none', outline: 'none', fontSize: '15px', marginLeft: '10px', height: '100%', backgroundColor: 'transparent', color: COLORS.text, width: '100%'
                 },
-                placeholder: "Search location...",
+                placeholder: "Search location in Delta...",
             })}
         </View>
       </View>

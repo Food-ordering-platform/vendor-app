@@ -4,7 +4,7 @@
     "slug": "choweazy-vendor",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo.png",
+    "icon": "./assets/vendor_logo.png",
     "userInterfaceStyle": "light", 
     "scheme": "vendorapp",
     "newArchEnabled": true,
@@ -19,7 +19,7 @@
       "userInterfaceStyle": "light",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/logo.png"
+        "foregroundImage": "./assets/vendor_logo.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
@@ -27,7 +27,7 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/logo.png",
+      "favicon": "./assets/vendor_logo.png",
       "name": "ChowEazy Vendor",
       "shortName": "ChowEazy",
       "lang": "en",
@@ -48,7 +48,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/logo.png",
+          "image": "./assets/vendor_logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
