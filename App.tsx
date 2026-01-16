@@ -1,4 +1,4 @@
-import React, { useEffect } from "react"; // 👈 Added useEffect
+import React from "react";
 import { NavigationContainer, LinkingOptions } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -8,13 +8,12 @@ import { COLORS } from "./constants/theme";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./context/authContext";
-import { ActivityIndicator, View, Platform } from "react-native"; // 👈 Added Platform
+import { ActivityIndicator, View, Platform } from "react-native";
 import { useOrderNotification } from "./hooks/useOrderNotification";
 import * as Linking from "expo-linking";
-import { Toaster, toast } from "./components/ui/Toast"; // 👈 Import 'toast' too
+import { Toaster } from "./components/ui/Toast";
 
-// 🟢 Import the Hook
-import { useInstallPrompt } from "./hooks/useInstallPrompts";
+
 
 // Screens
 import OnboardingScreen from "./screens/OnboardingScreen";
@@ -33,9 +32,11 @@ import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import TermsScreen from "./screens/TermsScreen";
 import PrivacyScreen from './screens/PrivacyScreen';
 import SetupLocationScreen from './screens/SetupLocationScreen';
+import VerificationPendingScreen from "./screens/VerificationPendingScreen"; // If you have this
 
 import { ThemeProvider } from "./context/themeContext";
 import { SocketProvider } from "./context/socketContext";
+import { PWAInstallBanner } from "./components/PWAInstallBanner";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -111,23 +112,7 @@ function NavigationContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
   useOrderNotification();
 
-  // 🟢 GLOBAL INSTALL PROMPT LOGIC
-  const { isInstallable, triggerInstall } = useInstallPrompt();
-
-  useEffect(() => {
-    // Only show on Web and when browser says it's installable
-    if (Platform.OS === 'web' && isInstallable) {
-      toast.success("Install ChowEazy Vendor App", {
-        description: "Add to Home Screen for a better experience.",
-        duration: 8000, 
-        action: {
-          label: "Install",
-          onClick: () => triggerInstall()
-        }
-      });
-    }
-  }, [isInstallable]);
-
+  // 🔴 REMOVED: No more useEffect for Toast here. The Banner handles itself.
 
   if (isLoading) {
     return (
@@ -185,8 +170,10 @@ export default function App() {
           <SafeAreaProvider>
             <ThemeProvider>
               <NavigationContent />
-              {/* Toaster is available globally here */}
-              <Toaster />
+              
+              {/* 🟢 GLOBAL OVERLAYS */}
+              <Toaster /> 
+             
             </ThemeProvider>
           </SafeAreaProvider>
         </SocketProvider>

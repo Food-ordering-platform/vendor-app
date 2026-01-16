@@ -6,23 +6,40 @@ export function useInstallPrompt() {
   const [isInstallable, setIsInstallable] = useState(false);
 
   useEffect(() => {
+    // Only run on Web
     if (Platform.OS !== 'web') return;
 
-    const handler = (e: any) => {
+    // 1. Listen for the install prompt
+    const handleBeforeInstallPrompt = (e: any) => {
       // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
       // Stash the event so it can be triggered later.
       setDeferredPrompt(e);
       setIsInstallable(true);
+      console.log("✅ PWA Install Prompt captured!");
     };
 
-    window.addEventListener('beforeinstallprompt', handler);
+    // 2. Listen for successful install
+    const handleAppInstalled = () => {
+      setIsInstallable(false);
+      setDeferredPrompt(null);
+      console.log("✅ PWA Installed successfully");
+    };
 
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
   }, []);
 
   const triggerInstall = async () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+      console.log("❌ No deferred prompt found");
+      return;
+    }
     
     // Show the install prompt
     deferredPrompt.prompt();
