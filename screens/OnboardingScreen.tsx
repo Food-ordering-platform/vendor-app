@@ -9,7 +9,7 @@ import {
   SafeAreaView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS, SPACING } from '../constants/theme';
+import { COLORS, SHADOWS, } from '../constants/theme';
 import { StatusBar } from 'expo-status-bar';
 
 const SLIDES = [

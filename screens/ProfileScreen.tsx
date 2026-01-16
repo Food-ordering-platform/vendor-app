@@ -10,15 +10,15 @@ import { useTheme } from '../context/themeContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useCreateRestaurant, useUpdateRestaurant } from '../services/restaurant/restaurant.queries';
+import { CommonActions } from '@react-navigation/native';
+import { toast } from '../components/ui/Toast'; // 👈 1. Import Toast
 
 export default function ProfileScreen({ navigation, route }: any) {
   const { user, logout, refreshUser } = useAuth();
-  const { colors, isDark, setMode } = useTheme();
+  const { colors, isDark } = useTheme();
   
-  const isSetupMode = route.params?.isOnboarding || false;
   const hasRestaurant = !!user?.restaurant?.id;
 
-  // Form State
   const [restaurantName, setRestaurantName] = useState(user?.restaurant?.name || "");
   const [address, setAddress] = useState(user?.restaurant?.address || "");
   const [phone, setPhone] = useState(user?.restaurant?.phone || user?.phone || "");
@@ -26,7 +26,6 @@ export default function ProfileScreen({ navigation, route }: any) {
   const [email, setEmail] = useState(user?.restaurant?.email || user?.email || ""); 
   const [isOpen, setIsOpen] = useState(user?.restaurant?.isOpen ?? true);
   
-  // Coordinates State
   const [coordinates, setCoordinates] = useState({
     lat: user?.restaurant?.latitude || 0,
     lng: user?.restaurant?.longitude || 0
@@ -39,8 +38,19 @@ export default function ProfileScreen({ navigation, route }: any) {
   const { mutate: updateRestaurant, isPending: isUpdating } = useUpdateRestaurant();
   const isPending = isCreating || isUpdating;
 
-  // Listen for data coming back from the Map Screen
   useEffect(() => {
+    if (route.params?.draftData) {
+        const { name, phone, email, prepTime, imageUri } = route.params.draftData;
+        if (name) setRestaurantName(name);
+        if (phone) setPhone(phone);
+        if (email) setEmail(email);
+        if (prepTime) setPrepTime(prepTime);
+        if (imageUri) {
+            setImage(imageUri);
+            setNewImageUri(imageUri);
+        }
+    }
+
     if (route.params?.selectedAddress) {
       setAddress(route.params.selectedAddress);
       setCoordinates({
@@ -50,10 +60,22 @@ export default function ProfileScreen({ navigation, route }: any) {
     }
   }, [route.params]);
 
+  const goToMap = () => {
+    navigation.navigate('SetupLocation', {
+        draftData: {
+            name: restaurantName,
+            phone,
+            email,
+            prepTime,
+            imageUri: newImageUri || image 
+        }
+    });
+  };
+
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'We need access to your gallery.');
+      toast.error('Permission Denied', { description: 'We need access to your gallery.' });
       return;
     }
 
@@ -72,7 +94,7 @@ export default function ProfileScreen({ navigation, route }: any) {
 
   const handleSave = () => {
     if (!restaurantName || !address || !phone || !email) {
-      Alert.alert("Missing Info", "Please fill in all details.");
+      toast.error("Missing Info", { description: "Please fill in all details." }); // 👈 Toast Error
       return;
     }
 
@@ -90,12 +112,24 @@ export default function ProfileScreen({ navigation, route }: any) {
 
     const onSuccess = async () => {
        await refreshUser(); 
-       Alert.alert("Success", hasRestaurant ? "Profile Updated!" : "Restaurant is Live!");
+
+       // 🟢 Success Toast
+       const message = hasRestaurant ? "Profile Updated Successfully!" : "Restaurant Launched Successfully!";
+       toast.success(message);
+
+       if (!hasRestaurant) {
+           navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [{ name: 'Main', params: { screen: 'Orders' } }],
+            })
+          );
+       }
     };
 
     if (hasRestaurant) {
       if (!user?.restaurant?.id) {
-        Alert.alert("Error", "Restaurant ID not found. Please restart the app.");
+        toast.error("Error", { description: "Restaurant ID not found. Please restart app." });
         return;
       }
       updateRestaurant({ id: user.restaurant.id, data: payload }, { onSuccess });
@@ -129,7 +163,6 @@ export default function ProfileScreen({ navigation, route }: any) {
         {/* --- FORM CONTENT --- */}
         <View style={styles.formContainer}>
           
-          {/* 1. Restaurant Details */}
           <View style={[styles.section, { backgroundColor: colors.surface }]}>
             <View style={styles.sectionHeader}>
               <Ionicons name="restaurant" size={20} color={colors.primary} />
@@ -151,7 +184,7 @@ export default function ProfileScreen({ navigation, route }: any) {
               <Text style={[styles.inputLabel, { color: colors.text }]}>Address</Text>
               <TouchableOpacity 
                 activeOpacity={0.7}
-                onPress={() => navigation.navigate('SetupLocation')}
+                onPress={goToMap}
               >
                 <View style={[styles.input, { 
                   borderColor: colors.border, 
@@ -176,7 +209,6 @@ export default function ProfileScreen({ navigation, route }: any) {
             </View>
           </View>
 
-          {/* 2. Contact Info & Prep Time */}
           <View style={[styles.section, { backgroundColor: colors.surface }]}>
             <View style={styles.sectionHeader}>
               <Ionicons name="call" size={20} color={colors.primary} />
@@ -207,7 +239,6 @@ export default function ProfileScreen({ navigation, route }: any) {
               />
             </View>
 
-            {/* ✅ PREP TIME ADDED */}
             <View style={styles.inputWrapper}>
               <Text style={[styles.inputLabel, { color: colors.text }]}>Prep Time (mins)</Text>
               <TextInput
@@ -221,7 +252,6 @@ export default function ProfileScreen({ navigation, route }: any) {
             </View>
           </View>
 
-          {/* 3. ✅ SETTINGS (TOGGLE ADDED) */}
           <View style={[styles.section, { backgroundColor: colors.surface }]}>
              <View style={styles.sectionHeader}>
                 <Ionicons name="settings" size={20} color={colors.primary} />
@@ -252,7 +282,6 @@ export default function ProfileScreen({ navigation, route }: any) {
             )}
           </TouchableOpacity>
 
-          {/* Sign Out Button (Only if has restaurant or setup mode) */}
           <TouchableOpacity 
             onPress={logout} 
             style={[styles.logoutButton, { backgroundColor: colors.danger + '15' }]}
@@ -274,27 +303,16 @@ const styles = StyleSheet.create({
   coverPlaceholder: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
   cameraCircle: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
   addPhotoText: { fontSize: 14, fontWeight: '700' },
-  
   formContainer: { paddingHorizontal: SPACING.m, gap: SPACING.m },
   section: { borderRadius: 16, padding: SPACING.m, ...SHADOWS.small },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 },
   sectionTitle: { fontSize: 16, fontWeight: '700' },
-  
   inputWrapper: { marginBottom: 16 },
   inputLabel: { fontSize: 12, fontWeight: '700', marginBottom: 6, textTransform: 'uppercase', opacity: 0.7 },
   input: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 15 },
-  
-  toggleItem: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingVertical: 8,
-    borderBottomWidth: 0 // Clean look
-  },
-  
+  toggleItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 0 },
   saveButton: { padding: 18, borderRadius: 14, alignItems: 'center', marginTop: 10, ...SHADOWS.medium },
   saveButtonText: { color: 'white', fontSize: 16, fontWeight: '800' },
-
   logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 16, gap: 8, marginTop: 10 },
   logoutText: { fontSize: 15, fontWeight: '700' }
 });

@@ -8,7 +8,7 @@ import {
   TouchableOpacity, 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS } from '../constants/theme';
+import { COLORS, } from '../constants/theme';
 
 const SLIDES = [
   {

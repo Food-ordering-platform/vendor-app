@@ -1,74 +1,317 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Platform 
+  View, Text, TextInput, TouchableOpacity, StyleSheet, 
+  ScrollView, ActivityIndicator, Alert, Image, Switch, 
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker'; 
+import { useAuth } from '../context/authContext';
+import { useTheme } from '../context/themeContext';
+import { COLORS, SPACING, SHADOWS } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOWS } from '../constants/theme';
+import { useCreateRestaurant, useUpdateRestaurant } from '../services/restaurant/restaurant.queries';
+import { CommonActions } from '@react-navigation/native'; // 👈 Import CommonActions
 
-export default function PrivacyScreen({ navigation }: any) {
+export default function ProfileScreen({ navigation, route }: any) {
+  const { user, logout, refreshUser } = useAuth();
+  const { colors, isDark } = useTheme();
+  
+  const hasRestaurant = !!user?.restaurant?.id;
+
+  const [restaurantName, setRestaurantName] = useState(user?.restaurant?.name || "");
+  const [address, setAddress] = useState(user?.restaurant?.address || "");
+  const [phone, setPhone] = useState(user?.restaurant?.phone || user?.phone || "");
+  const [prepTime, setPrepTime] = useState(user?.restaurant?.prepTime?.toString() || "20");
+  const [email, setEmail] = useState(user?.restaurant?.email || user?.email || ""); 
+  const [isOpen, setIsOpen] = useState(user?.restaurant?.isOpen ?? true);
+  
+  const [coordinates, setCoordinates] = useState({
+    lat: user?.restaurant?.latitude || 0,
+    lng: user?.restaurant?.longitude || 0
+  });
+  
+  const [image, setImage] = useState(user?.restaurant?.imageUrl || null); 
+  const [newImageUri, setNewImageUri] = useState<string | null>(null);
+
+  const { mutate: createRestaurant, isPending: isCreating } = useCreateRestaurant();
+  const { mutate: updateRestaurant, isPending: isUpdating } = useUpdateRestaurant();
+  const isPending = isCreating || isUpdating;
+
+  useEffect(() => {
+    if (route.params?.draftData) {
+        const { name, phone, email, prepTime, imageUri } = route.params.draftData;
+        if (name) setRestaurantName(name);
+        if (phone) setPhone(phone);
+        if (email) setEmail(email);
+        if (prepTime) setPrepTime(prepTime);
+        if (imageUri) {
+            setImage(imageUri);
+            setNewImageUri(imageUri);
+        }
+    }
+
+    if (route.params?.selectedAddress) {
+      setAddress(route.params.selectedAddress);
+      setCoordinates({
+        lat: route.params.selectedLat,
+        lng: route.params.selectedLng
+      });
+    }
+  }, [route.params]);
+
+  const goToMap = () => {
+    navigation.navigate('SetupLocation', {
+        draftData: {
+            name: restaurantName,
+            phone,
+            email,
+            prepTime,
+            imageUri: newImageUri || image 
+        }
+    });
+  };
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'We need access to your gallery.');
+      return;
+    }
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      setImage(result.assets[0].uri);
+      setNewImageUri(result.assets[0].uri);
+    }
+  };
+
+  const handleSave = () => {
+    if (!restaurantName || !address || !phone || !email) {
+      Alert.alert("Missing Info", "Please fill in all details.");
+      return;
+    }
+
+    const payload = {
+      name: restaurantName,
+      address,
+      phone,
+      email,
+      prepTime,
+      isOpen,
+      imageUri: newImageUri,
+      latitude: coordinates.lat,
+      longitude: coordinates.lng 
+    };
+
+    const onSuccess = async () => {
+       await refreshUser(); 
+
+       if (!hasRestaurant) {
+           // 🟢 CRITICAL FIX: FORCE NAVIGATION TO DASHBOARD
+           // We reset the history so the user CANNOT go back to Setup
+           navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [{ name: 'Main', params: { screen: 'Orders' } }],
+            })
+          );
+       } else {
+           Alert.alert("Success", "Profile Updated!");
+       }
+    };
+
+    if (hasRestaurant) {
+      if (!user?.restaurant?.id) {
+        Alert.alert("Error", "Restaurant ID not found. Please restart the app.");
+        return;
+      }
+      updateRestaurant({ id: user.restaurant.id, data: payload }, { onSuccess });
+    } else {
+      createRestaurant(payload, { onSuccess });
+    }
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
-      
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="close" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Privacy Policy</Text>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.intro}>
-          Your privacy matters. This policy explains how ChowEazy collects and uses Vendor data.
-        </Text>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>1. Information We Collect</Text>
-          <Text style={styles.paragraph}>We collect:</Text>
-          <Text style={styles.listItem}>• Business Name, Address, and Contact Details.</Text>
-          <Text style={styles.listItem}>• Bank Account Information (for payouts).</Text>
-          <Text style={styles.listItem}>• Transaction history and Order data.</Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>2. How We Use Data</Text>
-          <Text style={styles.paragraph}>
-            We use your data to facilitate orders, process payments, and improve our logistics algorithms. 
-            We do not sell your data to third parties.
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>3. Data Sharing</Text>
-          <Text style={styles.paragraph}>
-            We share necessary details (Restaurant Name, Pickup Address) with Riders to fulfill deliveries.
-          </Text>
-        </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         
-        <View style={{height: 40}} />
+        {/* --- COVER IMAGE --- */}
+        <TouchableOpacity onPress={pickImage} activeOpacity={0.9}>
+          <View style={styles.coverSection}>
+            {image ? (
+              <Image source={{ uri: image }} style={styles.coverImage} />
+            ) : (
+              <View style={[styles.coverPlaceholder, { backgroundColor: colors.surface }]}>
+                <View style={[styles.cameraCircle, { backgroundColor: colors.primary + '20' }]}>
+                  <Ionicons name="camera" size={32} color={colors.primary} />
+                </View>
+                <Text style={[styles.addPhotoText, { color: colors.primary }]}>
+                  Add Restaurant Cover
+                </Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+
+        {/* --- FORM CONTENT --- */}
+        <View style={styles.formContainer}>
+          
+          <View style={[styles.section, { backgroundColor: colors.surface }]}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="restaurant" size={20} color={colors.primary} />
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Restaurant Details</Text>
+            </View>
+
+            <View style={styles.inputWrapper}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Restaurant Name</Text>
+              <TextInput
+                style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+                value={restaurantName}
+                onChangeText={setRestaurantName}
+                placeholder="e.g., Mama's Kitchen"
+                placeholderTextColor={colors.textLight}
+              />
+            </View>
+
+            <View style={styles.inputWrapper}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Address</Text>
+              <TouchableOpacity 
+                activeOpacity={0.7}
+                onPress={goToMap}
+              >
+                <View style={[styles.input, { 
+                  borderColor: colors.border, 
+                  flexDirection: 'row', 
+                  alignItems: 'center',
+                  backgroundColor: isDark ? '#1F2937' : '#F9FAFB'
+                }]}>
+                  <Ionicons name="location" size={18} color={COLORS.primary} style={{ marginRight: 8 }} />
+                  <Text 
+                    style={{ 
+                      color: address ? colors.text : colors.textLight,
+                      flex: 1,
+                      fontSize: 15
+                    }} 
+                    numberOfLines={1}
+                  >
+                    {address || "Tap to set location on map"}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textLight} />
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={[styles.section, { backgroundColor: colors.surface }]}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="call" size={20} color={colors.primary} />
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Contact Info</Text>
+            </View>
+
+             <View style={styles.inputWrapper}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Phone Number</Text>
+              <TextInput
+                style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="+234..."
+                keyboardType="phone-pad"
+                placeholderTextColor={colors.textLight}
+              />
+            </View>
+            <View style={styles.inputWrapper}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Email</Text>
+              <TextInput
+                style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="business@example.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholderTextColor={colors.textLight}
+              />
+            </View>
+
+            <View style={styles.inputWrapper}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>Prep Time (mins)</Text>
+              <TextInput
+                style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+                value={prepTime}
+                onChangeText={setPrepTime}
+                placeholder="20"
+                keyboardType="numeric"
+                placeholderTextColor={colors.textLight}
+              />
+            </View>
+          </View>
+
+          <View style={[styles.section, { backgroundColor: colors.surface }]}>
+             <View style={styles.sectionHeader}>
+                <Ionicons name="settings" size={20} color={colors.primary} />
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Settings</Text>
+             </View>
+             <View style={[styles.toggleItem, { borderColor: isDark ? '#374151' : '#E5E7EB' }]}>
+                <Text style={{color: colors.text, fontWeight: '600', fontSize: 15}}>Accepting Orders</Text>
+                <Switch
+                    value={isOpen}
+                    onValueChange={setIsOpen}
+                    trackColor={{ false: "#D1D5DB", true: colors.success + '80' }}
+                    thumbColor={isOpen ? colors.success : "#9CA3AF"}
+                />
+             </View>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.saveButton, { backgroundColor: colors.primary }]}
+            onPress={handleSave}
+            disabled={isPending}
+          >
+            {isPending ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.saveButtonText}>
+                {hasRestaurant ? "Save Changes" : "Launch Restaurant"}
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            onPress={logout} 
+            style={[styles.logoutButton, { backgroundColor: colors.danger + '15' }]}
+          >
+            <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+            <Text style={[styles.logoutText, { color: colors.danger }]}>Sign Out</Text>
+          </TouchableOpacity>
+
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'white' },
-  header: {
-    paddingTop: Platform.OS === 'android' ? 40 : 10,
-    paddingBottom: 15,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  backButton: { marginRight: 15 },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.text },
-  content: { padding: 20 },
-  intro: { fontSize: 15, color: '#4B5563', marginBottom: 30, lineHeight: 24 },
-  section: { marginBottom: 30 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text, marginBottom: 10 },
-  paragraph: { fontSize: 14, color: '#6B7280', lineHeight: 22, marginBottom: 5 },
-  listItem: { fontSize: 14, color: '#6B7280', lineHeight: 24, paddingLeft: 10 },
+  container: { flex: 1 },
+  coverSection: { height: 200, marginBottom: SPACING.l },
+  coverImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  coverPlaceholder: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
+  cameraCircle: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  addPhotoText: { fontSize: 14, fontWeight: '700' },
+  formContainer: { paddingHorizontal: SPACING.m, gap: SPACING.m },
+  section: { borderRadius: 16, padding: SPACING.m, ...SHADOWS.small },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 },
+  sectionTitle: { fontSize: 16, fontWeight: '700' },
+  inputWrapper: { marginBottom: 16 },
+  inputLabel: { fontSize: 12, fontWeight: '700', marginBottom: 6, textTransform: 'uppercase', opacity: 0.7 },
+  input: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 15 },
+  toggleItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 0 },
+  saveButton: { padding: 18, borderRadius: 14, alignItems: 'center', marginTop: 10, ...SHADOWS.medium },
+  saveButtonText: { color: 'white', fontSize: 16, fontWeight: '800' },
+  logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 16, gap: 8, marginTop: 10 },
+  logoutText: { fontSize: 15, fontWeight: '700' }
 });

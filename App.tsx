@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from "./context/authContext";
 import { ActivityIndicator, View } from "react-native";
 import { useOrderNotification } from "./hooks/useOrderNotification";
 import * as Linking from "expo-linking";
+import { Toaster } from "./components/ui/Toast";
 
 // Screens
 import OnboardingScreen from "./screens/OnboardingScreen";
@@ -84,7 +85,7 @@ function VendorTabs() {
           shadowColor: "#000",
           shadowOpacity: 0.1,
           shadowRadius: 10,
-          height: 90 + (insets.bottom > 0 ? insets.bottom : 10),
+          height: 85 + (insets.bottom > 0 ? insets.bottom : 10),
           paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
           paddingTop: 10,
         },
@@ -167,6 +168,7 @@ export default function App() {
           <SafeAreaProvider>
             <ThemeProvider>
               <NavigationContent />
+              <Toaster />
             </ThemeProvider>
           </SafeAreaProvider>
         </SocketProvider>

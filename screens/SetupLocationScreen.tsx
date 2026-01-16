@@ -6,7 +6,6 @@ import {
   TouchableOpacity, 
   SafeAreaView, 
   ActivityIndicator, 
-  Alert,
   Platform,
   Dimensions,
   Keyboard
