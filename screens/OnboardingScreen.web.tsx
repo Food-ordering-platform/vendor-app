@@ -8,7 +8,7 @@ import {
   TouchableOpacity, 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, } from '../constants/theme';
+import { COLORS } from '../constants/theme';
 
 const SLIDES = [
   {
@@ -36,7 +36,8 @@ export default function OnboardingScreen({ navigation }: any) {
   const flatListRef = useRef<FlatList>(null);
   
   const { width: windowWidth } = useWindowDimensions();
-  const slideWidth = windowWidth > 500 ? 500 : windowWidth; 
+  // 🟢 FIX 1: Match Slide Width to Container Max Width (480px)
+  const slideWidth = windowWidth > 480 ? 480 : windowWidth; 
 
   const skip = () => {
     navigation.replace('Login');
@@ -60,7 +61,8 @@ export default function OnboardingScreen({ navigation }: any) {
   };
 
   const renderItem = ({ item }: { item: typeof SLIDES[0] }) => (
-    <View style={[styles.slide, { width: slideWidth }]}>
+    // 🟢 FIX 2: Add height: '100%' so flex centering works
+    <View style={[styles.slide, { width: slideWidth, height: '100%' }]}>
       <View style={styles.iconCircle}>
         <Ionicons name={item.icon as any} size={80} color={COLORS.primary} />
       </View>
@@ -78,7 +80,9 @@ export default function OnboardingScreen({ navigation }: any) {
             <FlatList
                 ref={flatListRef}
                 onMomentumScrollEnd={updateCurrentSlideIndex}
-                contentContainerStyle={{ height: '100%' }}
+                // 🟢 FIX 3: Flex 1 to fill available space
+                style={{ flex: 1 }}
+                contentContainerStyle={{ flexGrow: 1 }}
                 showsHorizontalScrollIndicator={false}
                 horizontal
                 data={SLIDES}
@@ -140,10 +144,10 @@ const styles = StyleSheet.create({
   },
   mobileContainer: {
     width: '100%',
-    maxWidth: 480,
+    maxWidth: 480, // Matches the slide logic now
     height: '100%', 
     maxHeight: 850, 
-    backgroundColor: '#FDF8F9', // Warm background
+    backgroundColor: '#FDF8F9',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -153,8 +157,8 @@ const styles = StyleSheet.create({
   },
   slide: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 40
+    justifyContent: 'center', // This now works because height is 100%
+    paddingBottom: 100, // Make room for footer so content is visually centered
   },
   iconCircle: {
     height: 160,
@@ -211,7 +215,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    boxShadow: '0px 4px 12px rgba(123, 30, 58, 0.4)', // Web shadow
+    boxShadow: '0px 4px 12px rgba(123, 30, 58, 0.4)', 
   },
   primaryBtnText: { fontWeight: 'bold', fontSize: 15, color: '#fff', letterSpacing: 1 },
   
