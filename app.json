@@ -5,16 +5,18 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
+    "userInterfaceStyle": "light", 
     "scheme": "vendorapp",
-    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.choweazy.vendor"
+      "bundleIdentifier": "com.choweazy.vendor",
+      "userInterfaceStyle": "light"
     },
     "android": {
       "package": "com.choweazy.vendor",
       "googleServicesFile": "./google-services.json",
+      "userInterfaceStyle": "light",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/logo.png"

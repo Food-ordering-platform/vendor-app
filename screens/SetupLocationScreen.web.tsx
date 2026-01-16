@@ -1,18 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, createElement } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   TouchableOpacity, 
   ActivityIndicator, 
-  Dimensions,
-  TextInput,
   Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS, SPACING } from '../constants/theme';
 
-// Helper to access the global Google object we loaded in index.html
+// Helper to access the global Google object
 declare global {
   interface Window {
     google: any;
@@ -21,73 +19,118 @@ declare global {
 
 export default function SetupLocationScreen({ navigation }: any) {
   const mapRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null); 
   const googleMapRef = useRef<any>(null);
   
   const [address, setAddress] = useState<string>("Locating...");
-  const [isDragging, setIsDragging] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [center, setCenter] = useState({ lat: 6.5244, lng: 3.3792 }); // Default Lagos
+  // Default to Lagos, but will update
+  const [center, setCenter] = useState({ lat: 6.5244, lng: 3.3792 }); 
 
-  // 1. Initialize Map
+  // 1. Initialize Map & Autocomplete
   useEffect(() => {
-    if (mapRef.current && !googleMapRef.current) {
-      // Create the map
-      const map = new window.google.maps.Map(mapRef.current, {
-        center: center,
-        zoom: 15,
-        disableDefaultUI: true, // Clean look like native
-        clickableIcons: false,
-      });
-
-      googleMapRef.current = map;
-
-      // Listen for drags
-      map.addListener("dragstart", () => setIsDragging(true));
-      map.addListener("idle", () => {
-        setIsDragging(false);
-        const newCenter = map.getCenter();
-        const lat = newCenter.lat();
-        const lng = newCenter.lng();
-        setCenter({ lat, lng });
-        fetchAddress(lat, lng);
-      });
-
-      // Try to get real User Location
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            const userLoc = { lat: latitude, lng: longitude };
-            map.setCenter(userLoc);
-            setCenter(userLoc);
-            fetchAddress(latitude, longitude);
-          },
-          () => console.log("Geolocation blocked")
-        );
+    const interval = setInterval(() => {
+      if (window.google && mapRef.current) {
+        clearInterval(interval);
+        initMap();
       }
-    }
+    }, 500);
+
+    return () => clearInterval(interval);
   }, []);
 
-  // 2. Reverse Geocoding (Web Version)
+  const initMap = () => {
+    if (!window.google || !mapRef.current) return;
+
+    // A. Create Map
+    const map = new window.google.maps.Map(mapRef.current, {
+      center: center,
+      zoom: 15,
+      disableDefaultUI: true, 
+      clickableIcons: false,
+    });
+    googleMapRef.current = map;
+
+    // B. Setup Search Autocomplete
+    if (inputRef.current) {
+      const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
+        fields: ["geometry", "formatted_address", "name"],
+      });
+      
+      autocomplete.bindTo("bounds", map);
+
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+
+        if (!place.geometry || !place.geometry.location) {
+          return;
+        }
+
+        // Move Map
+        if (place.geometry.viewport) {
+          map.fitBounds(place.geometry.viewport);
+        } else {
+          map.setCenter(place.geometry.location);
+          map.setZoom(17);
+        }
+
+        // Update State
+        const newAddress = place.formatted_address || place.name;
+        const newLat = place.geometry.location.lat();
+        const newLng = place.geometry.location.lng();
+
+        setAddress(newAddress);
+        setCenter({ lat: newLat, lng: newLng });
+        
+        // Force update input value visually
+        if(inputRef.current) inputRef.current.value = newAddress;
+      });
+    }
+
+    // C. Listen for Drag End (Idle)
+    map.addListener("idle", () => {
+      const newCenter = map.getCenter();
+      const lat = newCenter.lat();
+      const lng = newCenter.lng();
+      setCenter({ lat, lng });
+      fetchAddress(lat, lng);
+    });
+
+    // D. Get Current Location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const userLoc = { lat: latitude, lng: longitude };
+          map.setCenter(userLoc);
+        },
+        () => console.log("Geolocation blocked")
+      );
+    }
+  };
+
   const fetchAddress = (lat: number, lng: number) => {
+    // Only fetch if we are NOT currently using the search bar to avoid overwriting
+    if (document.activeElement === inputRef.current) return;
+
     const geocoder = new window.google.maps.Geocoder();
     geocoder.geocode({ location: { lat, lng } }, (results: any, status: any) => {
       if (status === "OK" && results[0]) {
         setAddress(results[0].formatted_address);
-      } else {
-        setAddress("Unknown Location");
+        if(inputRef.current) {
+           inputRef.current.value = results[0].formatted_address;
+        }
       }
     });
   };
 
   const handleConfirm = () => {
-    navigation.navigate({
-      name: 'Profile',
-      params: { 
-        selectedAddress: address,
-        selectedLat: center.lat,
-        selectedLng: center.lng
-      },
+    // 🟢 ROBUST NAVIGATION FIX
+    // This ensures we find 'Profile' whether it's a sibling or nested in Main
+    navigation.navigate('Profile', { 
+      selectedAddress: address,
+      selectedLat: center.lat,
+      selectedLng: center.lng,
       merge: true,
     });
   };
@@ -95,25 +138,41 @@ export default function SetupLocationScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       
-      {/* 🗺️ WEB MAP CONTAINER */}
+      {/* 🗺️ MAP */}
       <View style={styles.mapContainer}>
         <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
       </View>
 
-      {/* 🔙 HEADER / SEARCH */}
+      {/* 🔍 SEARCH BAR */}
       <View style={styles.headerContainer}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
              <Ionicons name="arrow-back" size={24} color={COLORS.text} />
         </TouchableOpacity>
-        <View style={styles.searchBox}>
-            <Ionicons name="search" size={20} color={COLORS.textLight} />
-            <Text style={{ color: COLORS.textLight, marginLeft: 8 }}>Drag map to adjust</Text>
+        
+        <View style={styles.searchBoxWrapper}>
+            <Ionicons name="search" size={20} color={COLORS.textLight} style={{marginLeft: 10}}/>
+            {createElement('input', {
+                ref: inputRef,
+                style: {
+                    flex: 1,
+                    border: 'none',
+                    outline: 'none',
+                    fontSize: '15px',
+                    marginLeft: '10px',
+                    height: '100%',
+                    backgroundColor: 'transparent',
+                    color: COLORS.text,
+                    width: '100%' // Ensure full width
+                },
+                placeholder: "Search for your location...",
+                type: "text"
+            })}
         </View>
       </View>
 
-      {/* 📍 STATIC CENTER PIN */}
+      {/* 📍 CENTER PIN */}
       <View style={styles.pinContainer} pointerEvents="none">
-        <View style={[styles.pinWrapper, isDragging && styles.pinDragging]}>
+        <View style={styles.pinWrapper}>
             <Ionicons name="location" size={40} color={COLORS.primary} />
             <View style={styles.shadow} />
         </View>
@@ -146,9 +205,9 @@ export default function SetupLocationScreen({ navigation }: any) {
         </View>
 
         <TouchableOpacity 
-            style={[styles.button, (loading || isDragging) && styles.buttonDisabled]} 
+            style={[styles.button, loading && styles.buttonDisabled]} 
             onPress={handleConfirm}
-            disabled={loading || isDragging}
+            disabled={loading} // 🟢 REMOVED isDragging CHECK
         >
             {loading ? (
                 <ActivityIndicator color="white" />
@@ -174,10 +233,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center', ...SHADOWS.small,
     marginRight: 10
   },
-  searchBox: {
+  searchBoxWrapper: {
     flex: 1, height: 44, backgroundColor: 'white', borderRadius: 22,
-    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15,
-    ...SHADOWS.small
+    flexDirection: 'row', alignItems: 'center', 
+    ...SHADOWS.small,
+    overflow: 'hidden'
   },
 
   pinContainer: {
@@ -185,7 +245,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center', zIndex: 0,
   },
   pinWrapper: { alignItems: 'center', justifyContent: 'center', marginBottom: 40 },
-  pinDragging: { transform: [{ scale: 1.1 }, { translateY: -10 }] },
   shadow: { width: 10, height: 4, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 5, marginTop: -2 },
 
   gpsButton: {

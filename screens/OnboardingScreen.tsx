@@ -6,26 +6,29 @@ import {
   StyleSheet, 
   useWindowDimensions, 
   TouchableOpacity, 
-  Image,
   SafeAreaView
 } from 'react-native';
-import { COLORS, SHADOWS } from '../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS, SHADOWS, SPACING } from '../constants/theme';
 import { StatusBar } from 'expo-status-bar';
 
 const SLIDES = [
   {
     id: '1',
+    icon: 'megaphone', // Filled icons look better
     title: 'Expand Your Reach',
     subtitle: 'Connect with thousands of hungry customers in your area instantly.',
   },
   {
     id: '2',
-    title: 'Manage Orders Easily',
+    icon: 'receipt',
+    title: 'Manage Orders',
     subtitle: 'Track, process, and deliver orders efficiently with our tools.',
   },
   {
     id: '3',
-    title: 'Boost Your Earnings',
+    icon: 'wallet',
+    title: 'Boost Earnings',
     subtitle: 'Grow your business with insights and fast payouts.',
   },
 ];
@@ -41,12 +44,10 @@ export default function OnboardingScreen({ navigation }: any) {
 
   const goToNextSlide = () => {
     const nextSlideIndex = currentSlideIndex + 1;
-    
     if (nextSlideIndex < SLIDES.length) {
       const offset = nextSlideIndex * width;
       flatListRef?.current?.scrollToOffset({ offset });
-      // 👇 FIX: Manually update state immediately (don't wait for scroll event)
-      setCurrentSlideIndex(nextSlideIndex); 
+      setCurrentSlideIndex(nextSlideIndex);
     } else {
       navigation.replace('Login');
     }
@@ -59,12 +60,12 @@ export default function OnboardingScreen({ navigation }: any) {
   };
 
   const renderItem = ({ item }: { item: typeof SLIDES[0] }) => (
-    <View style={[styles.slide, { width, paddingTop: height * 0.1 }]}>
-      <Image 
-        source={item.image} 
-        style={[styles.image, { height: height * 0.4, width: width * 0.8 }]} 
-        resizeMode="contain" 
-      />
+    <View style={[styles.slide, { width }]}>
+      {/* 🎨 Icon Background Circle */}
+      <View style={styles.iconCircle}>
+        <Ionicons name={item.icon as any} size={80} color={COLORS.primary} />
+      </View>
+      
       <View style={styles.textContainer}>
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.subtitle}>{item.subtitle}</Text>
@@ -73,23 +74,25 @@ export default function OnboardingScreen({ navigation }: any) {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    // 🎨 Warm Background Color matching branding
+    <SafeAreaView style={[styles.container, { backgroundColor: '#FDF8F9' }]}>
       <StatusBar style="dark" />
+      
       <FlatList
         ref={flatListRef}
         onMomentumScrollEnd={updateCurrentSlideIndex}
-        contentContainerStyle={{ height: height * 0.75 }}
+        contentContainerStyle={{ alignItems: 'center', paddingTop: height * 0.1 }}
         showsHorizontalScrollIndicator={false}
         horizontal
         data={SLIDES}
         pagingEnabled
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
-        // 👇 ADDED: Prevents scroll interference on web
         scrollEventThrottle={32}
       />
 
       <View style={[styles.footer, { height: height * 0.25 }]}>
+        {/* Indicators */}
         <View style={styles.indicatorContainer}>
           {SLIDES.map((_, index) => (
             <View
@@ -102,27 +105,33 @@ export default function OnboardingScreen({ navigation }: any) {
           ))}
         </View>
 
+        {/* Buttons */}
         <View style={styles.btnContainer}>
           {currentSlideIndex === SLIDES.length - 1 ? (
-            <TouchableOpacity style={styles.btn} onPress={skip}>
-              <Text style={styles.btnText}>GET STARTED</Text>
+            <TouchableOpacity 
+              activeOpacity={0.8}
+              style={styles.primaryBtn} 
+              onPress={skip}
+            >
+              <Text style={styles.primaryBtnText}>GET STARTED</Text>
             </TouchableOpacity>
           ) : (
-            <View style={{ flexDirection: 'row' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <TouchableOpacity 
-                activeOpacity={0.8} 
-                style={[styles.btn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: COLORS.primary }]} 
+                activeOpacity={0.6} 
+                style={styles.skipBtn} 
                 onPress={skip}
               >
-                <Text style={[styles.btnText, { color: COLORS.primary }]}>SKIP</Text>
+                <Text style={styles.skipBtnText}>Skip</Text>
               </TouchableOpacity>
-              <View style={{ width: 15 }} />
+              
               <TouchableOpacity 
                 activeOpacity={0.8} 
                 onPress={goToNextSlide} 
-                style={styles.btn}
+                style={styles.nextBtn}
               >
-                <Text style={styles.btnText}>NEXT</Text>
+                <Text style={styles.nextBtnText}>Next</Text>
+                <Ionicons name="arrow-forward" size={20} color="white" />
               </TouchableOpacity>
             </View>
           )}
@@ -133,71 +142,82 @@ export default function OnboardingScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  slide: {
-    alignItems: 'center',
-  },
-  image: {
-    // Dynamic dimensions handled inline
-  },
-  textContainer: {
-    paddingHorizontal: 20,
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  title: {
-    color: COLORS.text,
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  subtitle: {
-    color: COLORS.textLight,
-    fontSize: 14,
-    textAlign: 'center',
-    maxWidth: '80%',
-    lineHeight: 22,
-  },
-  footer: {
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 50,
-  },
-  indicatorContainer: {
-    flexDirection: 'row',
+  container: { flex: 1 },
+  slide: { alignItems: 'center', justifyContent: 'flex-start' },
+  
+  // 🎨 New Icon Styling
+  iconCircle: {
+    height: 180,
+    width: 180,
+    borderRadius: 90,
+    backgroundColor: '#FFEBF0', // Very light version of your Wine color
     justifyContent: 'center',
-    marginTop: 20,
+    alignItems: 'center',
+    marginBottom: 40,
+    ...SHADOWS.medium, // Adds depth
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.1,
   },
-  indicator: {
-    height: 4,
-    width: 10,
-    backgroundColor: '#D9D9D9',
-    marginHorizontal: 3,
-    borderRadius: 2,
+  
+  textContainer: { paddingHorizontal: 40, alignItems: 'center' },
+  
+  // 🎨 Typography Upgrade
+  title: { 
+    color: '#2D1B21', // Darker, richer text color
+    fontSize: 32, 
+    fontWeight: '800', // Extra Bold
+    textAlign: 'center', 
+    marginBottom: 16,
+    letterSpacing: -0.5
   },
-  indicatorActive: {
+  subtitle: { 
+    color: '#6B7280', 
+    fontSize: 16, 
+    textAlign: 'center', 
+    lineHeight: 24,
+    fontWeight: '500'
+  },
+  
+  footer: { justifyContent: 'space-between', paddingHorizontal: 24, paddingBottom: 40 },
+  
+  indicatorContainer: { flexDirection: 'row', justifyContent: 'center', marginBottom: 20 },
+  indicator: { height: 6, width: 6, backgroundColor: '#E5E7EB', marginHorizontal: 4, borderRadius: 3 },
+  indicatorActive: { backgroundColor: COLORS.primary, width: 24, height: 6, borderRadius: 3 },
+  
+  btnContainer: { marginBottom: 10 },
+  
+  // 🎨 "Alive" Button Styling
+  primaryBtn: {
+    height: 56,
+    borderRadius: 30, // Pill shape
     backgroundColor: COLORS.primary,
-    width: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...SHADOWS.medium,
+    shadowColor: COLORS.primary, // Colored shadow (Glow effect)
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  btnContainer: {
-    marginBottom: 20,
+  primaryBtnText: { fontWeight: 'bold', fontSize: 16, color: '#fff', letterSpacing: 1 },
+  
+  skipBtn: {
+    height: 56,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
-  btn: {
-    flex: 1,
-    height: 50,
-    borderRadius: 12,
+  skipBtnText: { color: COLORS.textLight, fontSize: 16, fontWeight: '600' },
+  
+  nextBtn: {
+    height: 56,
+    width: 140,
+    flexDirection: 'row',
+    gap: 8,
+    borderRadius: 28,
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
     ...SHADOWS.small,
   },
-  btnText: {
-    fontWeight: 'bold',
-    fontSize: 15,
-    color: '#fff',
-  },
+  nextBtnText: { fontWeight: 'bold', fontSize: 16, color: '#fff' },
 });
