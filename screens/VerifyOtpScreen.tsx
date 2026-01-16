@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import * as SecureStore from 'expo-secure-store'; // Import SecureStore
+import * as SecureStore from 'expo-secure-store';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
 import { useVerifyOtp } from '../services/auth/auth.queries';
 import { useAuth } from '../context/authContext';
@@ -22,7 +22,7 @@ export default function VerifyOtpScreen({ navigation, route }: any) {
   const [code, setCode] = useState('');
   
   const { mutateAsync: verifyOtp, isPending } = useVerifyOtp();
-  const { refreshUser } = useAuth(); // Needed to update app state after success
+  const { refreshUser } = useAuth(); 
 
   const handleVerify = async () => {
     if (!code || code.length < 4) {
@@ -39,31 +39,28 @@ export default function VerifyOtpScreen({ navigation, route }: any) {
     try {
       // 1. Call Backend
       const result = await verifyOtp({
-        token: tempToken, // The temporary token from Login/Register
+        token: tempToken, 
         code: code,
         clientType: 'mobile'
       });
 
-      // 2. Save the FINAL access token
+      // 2. Save the FINAL access token (Platform Safe!)
       if (result.token) {
-        await SecureStore.setItemAsync('auth_token', result.token);
+        if (Platform.OS === 'web') {
+          localStorage.setItem('auth_token', result.token);
+        } else {
+          await SecureStore.setItemAsync('auth_token', result.token);
+        }
         
         // 3. Update Global Auth State
+        // This will automatically trigger App.tsx to switch stacks (to Profile/Dashboard)
         await refreshUser();
-        
-        // 4. Navigation
-        // Typically, the AppNavigator detects 'user' in context and switches stacks automatically.
-        // If not, we explicitly reset to Dashboard to be safe.
-        // navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] }); 
-        navigation.navigate()
         
       } else {
         Alert.alert("Error", "Verification successful but no token received.");
       }
 
     } catch (error: any) {
-      // Error handling is managed by the mutation's onError (in queries.ts), 
-      // but we catch here to stop execution if needed.
       console.log("OTP Error handled in hook");
     }
   };
@@ -115,9 +112,6 @@ export default function VerifyOtpScreen({ navigation, route }: any) {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Didn&apos;t receive code? </Text>
-          {/* Note: You can implement a Resend Logic here if you have an endpoint for it.
-            For now, user might need to retry login/signup if code expired.
-          */}
           <TouchableOpacity onPress={() => navigation.navigate('Login')}>
             <Text style={styles.linkText}>Back to Login</Text>
           </TouchableOpacity>
