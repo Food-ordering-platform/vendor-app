@@ -6,20 +6,18 @@ export function useInstallPrompt() {
   const [isInstallable, setIsInstallable] = useState(false);
 
   useEffect(() => {
-    // Only run on Web
     if (Platform.OS !== 'web') return;
 
-    // 1. Listen for the install prompt
     const handleBeforeInstallPrompt = (e: any) => {
-      // Prevent the mini-infobar from appearing on mobile
-      e.preventDefault();
-      // Stash the event so it can be triggered later.
+      // 🔴 REMOVED: e.preventDefault(); 
+      // We removed this line so the browser CAN show its own native mini-bar automatically.
+
+      // We still stash the event just in case you want to trigger it manually later
       setDeferredPrompt(e);
       setIsInstallable(true);
-      console.log("✅ PWA Install Prompt captured!");
+      console.log("✅ PWA Install Prompt captured (Native UI allowed)");
     };
 
-    // 2. Listen for successful install
     const handleAppInstalled = () => {
       setIsInstallable(false);
       setDeferredPrompt(null);
@@ -36,19 +34,9 @@ export function useInstallPrompt() {
   }, []);
 
   const triggerInstall = async () => {
-    if (!deferredPrompt) {
-      console.log("❌ No deferred prompt found");
-      return;
-    }
-    
-    // Show the install prompt
+    if (!deferredPrompt) return;
     deferredPrompt.prompt();
-    
-    // Wait for the user to respond to the prompt
     const { outcome } = await deferredPrompt.userChoice;
-    console.log(`User response to the install prompt: ${outcome}`);
-    
-    // We've used the prompt, and can't use it again, throw it away
     setDeferredPrompt(null);
     setIsInstallable(false);
   };

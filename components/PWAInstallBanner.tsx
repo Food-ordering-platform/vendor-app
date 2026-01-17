@@ -16,7 +16,7 @@ export const PWAInstallBanner = () => {
         {/* Icon */}
         <View style={styles.iconContainer}>
             <Image 
-              source={require('../assets/logo.png')} 
+              source={require('../assets/vendor_logo.png')} 
               style={{ width: 24, height: 24, borderRadius: 4 }} 
             />
         </View>

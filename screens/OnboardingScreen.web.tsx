@@ -35,9 +35,15 @@ export default function OnboardingScreen({ navigation }: any) {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   
-  const { width: windowWidth } = useWindowDimensions();
-  // 🟢 FIX 1: Match Slide Width to Container Max Width (480px)
-  const slideWidth = windowWidth > 480 ? 480 : windowWidth; 
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+
+  // 1. Define Constraints (Must match styles.mobileContainer)
+  const MAX_WIDTH = 480;
+  const MAX_HEIGHT = 850;
+
+  // 2. Calculate Actual Container Dimensions
+  const containerWidth = Math.min(windowWidth, MAX_WIDTH);
+  const containerHeight = Math.min(windowHeight, MAX_HEIGHT);
 
   const skip = () => {
     navigation.replace('Login');
@@ -46,7 +52,7 @@ export default function OnboardingScreen({ navigation }: any) {
   const goToNextSlide = () => {
     const nextSlideIndex = currentSlideIndex + 1;
     if (nextSlideIndex < SLIDES.length) {
-      const offset = nextSlideIndex * slideWidth;
+      const offset = nextSlideIndex * containerWidth;
       flatListRef?.current?.scrollToOffset({ offset });
       setCurrentSlideIndex(nextSlideIndex);
     } else {
@@ -56,13 +62,13 @@ export default function OnboardingScreen({ navigation }: any) {
 
   const updateCurrentSlideIndex = (e: any) => {
     const contentOffsetX = e.nativeEvent.contentOffset.x;
-    const currentIndex = Math.round(contentOffsetX / slideWidth);
+    const currentIndex = Math.round(contentOffsetX / containerWidth);
     setCurrentSlideIndex(currentIndex);
   };
 
   const renderItem = ({ item }: { item: typeof SLIDES[0] }) => (
-    // 🟢 FIX 2: Add height: '100%' so flex centering works
-    <View style={[styles.slide, { width: slideWidth, height: '100%' }]}>
+    // 3. Apply Explicit Height (containerHeight) to force centering
+    <View style={[styles.slide, { width: containerWidth, height: containerHeight }]}>
       <View style={styles.iconCircle}>
         <Ionicons name={item.icon as any} size={80} color={COLORS.primary} />
       </View>
@@ -76,11 +82,10 @@ export default function OnboardingScreen({ navigation }: any) {
 
   return (
     <View style={styles.webBackground}>
-        <View style={styles.mobileContainer}>
+        <View style={[styles.mobileContainer, { height: containerHeight, width: containerWidth }]}>
             <FlatList
                 ref={flatListRef}
                 onMomentumScrollEnd={updateCurrentSlideIndex}
-                // 🟢 FIX 3: Flex 1 to fill available space
                 style={{ flex: 1 }}
                 contentContainerStyle={{ flexGrow: 1 }}
                 showsHorizontalScrollIndicator={false}
@@ -143,10 +148,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   mobileContainer: {
-    width: '100%',
-    maxWidth: 480, // Matches the slide logic now
-    height: '100%', 
-    maxHeight: 850, 
     backgroundColor: '#FDF8F9',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -157,8 +158,8 @@ const styles = StyleSheet.create({
   },
   slide: {
     alignItems: 'center',
-    justifyContent: 'center', // This now works because height is 100%
-    paddingBottom: 100, // Make room for footer so content is visually centered
+    justifyContent: 'center', // Now works because height is explicit
+    paddingBottom: 80, // Offset for the footer
   },
   iconCircle: {
     height: 160,
