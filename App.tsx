@@ -8,12 +8,10 @@ import { COLORS } from "./constants/theme";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./context/authContext";
-import { ActivityIndicator, View, Platform } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { useOrderNotification } from "./hooks/useOrderNotification";
 import * as Linking from "expo-linking";
 import { Toaster } from "./components/ui/Toast";
-
-
 
 // Screens
 import OnboardingScreen from "./screens/OnboardingScreen";
@@ -32,10 +30,11 @@ import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import TermsScreen from "./screens/TermsScreen";
 import PrivacyScreen from './screens/PrivacyScreen';
 import SetupLocationScreen from './screens/SetupLocationScreen';
-import VerificationPendingScreen from "./screens/VerificationPendingScreen"; // If you have this
+import VerificationPendingScreen from "./screens/VerificationPendingScreen"; 
 
 import { ThemeProvider } from "./context/themeContext";
 import { SocketProvider } from "./context/socketContext";
+// 🟢 IMPORT THE BANNER
 import { PWAInstallBanner } from "./components/PWAInstallBanner";
 
 const Stack = createNativeStackNavigator();
@@ -112,8 +111,6 @@ function NavigationContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
   useOrderNotification();
 
-  // 🔴 REMOVED: No more useEffect for Toast here. The Banner handles itself.
-
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -173,6 +170,9 @@ export default function App() {
               
               {/* 🟢 GLOBAL OVERLAYS */}
               <Toaster /> 
+              
+              {/* 🟢 ADDED: PWA Install Banner */}
+              <PWAInstallBanner />
              
             </ThemeProvider>
           </SafeAreaProvider>
