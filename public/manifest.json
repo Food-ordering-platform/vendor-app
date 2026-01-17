@@ -17,5 +17,18 @@
   "display": "standalone",
   "theme_color": "#7B1E3A",
   "background_color": "#ffffff",
-  "orientation": "portrait"
+  "orientation": "portrait",
+  "screenshots": [
+    {
+      "src": "/screenshots/vendor_logo.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "/screenshots/vendor_logo.png",
+      "sizes": "375x667",
+      "type": "image/png"
+    }
+  ]
 }
