@@ -12,7 +12,7 @@ export function useInstallPrompt() {
     // 2. Listen for the browser's "I'm ready to install" event
     const handleBeforeInstallPrompt = (e: any) => {
       // PREVENT the default mini-infobar so we can show our own UI
-      e.preventDefault();
+      // e.preventDefault();
       
       // Save the event for later (when user clicks our button)
       setDeferredPrompt(e);

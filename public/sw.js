@@ -1,6 +1,13 @@
-// Minimal Service Worker to satisfy PWA requirements
+const CACHE_NAME = 'choweazy-vendor-v1';
+const OFFLINE_URL = '/';
+
 self.addEventListener('install', (event) => {
   self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll([OFFLINE_URL]);
+    })
+  );
 });
 
 self.addEventListener('activate', (event) => {
@@ -8,7 +15,9 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Simple pass-through fetch
-  // This satisfies the PWA requirement for a fetch handler
-  event.respondWith(fetch(event.request));
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match(OFFLINE_URL))
+    );
+  }
 });
