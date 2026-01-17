@@ -1,29 +1,27 @@
 <!DOCTYPE html>
-<html lang="%LANG_ISO_CODE%">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 
-    <!-- Viewport -->
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1, shrink-to-fit=no"
     />
 
-    <!-- Theme color (PWA polish + Android) -->
-    <meta name="theme-color" content="#7b1e3a" />
+    <meta name="theme-color" content="#7B1E3A" />
 
-    <!-- Google Maps -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+
     <script
       src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBWtXEl3nt3CNLis9jwjkLiV9jR0RmaE1A&libraries=places"
       async
       defer
     ></script>
 
-    <!-- App Title -->
-    <title>%WEB_TITLE%</title>
+    <title>ChowEazy Vendor</title>
 
-    <!-- Inter Font (FORCED for Mobile & Web) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -31,7 +29,6 @@
       rel="stylesheet"
     />
 
-    <!-- Expo / React Native Web Reset + Font Lock -->
     <style id="expo-reset">
       /* ROOT FONT LOCK */
       html {
@@ -83,7 +80,18 @@
       You need to enable JavaScript to run this app.
     </noscript>
 
-    <!-- Expo App Root -->
     <div id="root"></div>
+
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').then(function(registration) {
+            console.log('ServiceWorker registration successful with scope: ', registration.scope);
+          }, function(err) {
+            console.log('ServiceWorker registration failed: ', err);
+          });
+        });
+      }
+    </script>
   </body>
 </html>

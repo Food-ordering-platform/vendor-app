@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/vendor_logo.png",
-    "userInterfaceStyle": "light", 
+    "userInterfaceStyle": "light",
     "scheme": "vendorapp",
     "newArchEnabled": true,
     "ios": {
@@ -31,7 +31,7 @@
       "name": "ChowEazy Vendor",
       "shortName": "ChowEazy",
       "lang": "en",
-      "themeColor": "#E6F4FE",
+      "themeColor": "#7B1E3A", 
       "backgroundColor": "#ffffff",
       "display": "standalone",
       "startUrl": "/",
