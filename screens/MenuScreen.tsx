@@ -8,10 +8,12 @@ import {
   ActivityIndicator, 
   Image, 
   Switch, 
-  Alert 
+  Alert,
+  ScrollView,
+  Platform // 👈 Import Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SPACING, SHADOWS } from '../constants/theme';
+import { SPACING, SHADOWS, COLORS } from '../constants/theme'; // Ensure COLORS is imported
 import Header from '../components/HeaderTemp';
 import { useTheme } from '../context/themeContext';
 import { useAuth } from '../context/authContext';
@@ -33,26 +35,34 @@ export default function MenuScreen({ navigation }: any) {
   
   const menuItems = menuResponse?.data || [];
 
-  // 2. Handlers
+  // 2. 🟢 ROBUST DELETE HANDLER (PWA Friendly)
   const handleDelete = (itemId: string, name: string) => {
-    Alert.alert(
-      "Delete Item",
-      `Are you sure you want to remove "${name}"?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Delete", 
-          style: "destructive", 
-          onPress: () => deleteItem(itemId) 
-        }
-      ]
-    );
+    if (Platform.OS === 'web') {
+      // PWA / Web: Use browser confirm because it's reliable
+      const confirmed = window.confirm(`Are you sure you want to delete "${name}"?`);
+      if (confirmed) {
+        deleteItem(itemId);
+      }
+    } else {
+      // Native (iOS/Android): Use native Alert with destructive style
+      Alert.alert(
+        "Delete Item",
+        `Are you sure you want to remove "${name}"?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Delete", 
+            style: "destructive", 
+            onPress: () => deleteItem(itemId) 
+          }
+        ]
+      );
+    }
   };
 
   const renderItem = ({ item }: any) => {
     return (
       <View style={[styles.itemCard, { backgroundColor: colors.surface }]}>
-        
         {/* Image Section */}
         <View style={styles.imageContainer}>
           {item.imageUrl ? (
@@ -63,37 +73,27 @@ export default function MenuScreen({ navigation }: any) {
             </View>
           )}
           
-          {/* Status Badge Overlay */}
+          {/* Status Badge */}
           <View style={[styles.statusBadgeOverlay, { 
             backgroundColor: item.available ? colors.success : colors.danger 
           }]}>
-            <Ionicons 
-              name={item.available ? "checkmark-circle" : "close-circle"} 
-              size={14} 
-              color="white" 
-            />
             <Text style={styles.statusBadgeText}>
-              {item.available ? 'Available' : 'Out'}
+              {item.available ? 'Active' : 'Hidden'}
             </Text>
           </View>
         </View>
 
         {/* Content Section */}
         <View style={styles.itemContent}>
-          {/* Header Row */}
           <View style={styles.itemHeader}>
             <View style={styles.itemTitleSection}>
               <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={1}>
                 {item.name}
               </Text>
-              <View style={styles.categoryBadge}>
-                <Ionicons name="pricetag-outline" size={12} color={colors.primary} />
-                <Text style={[styles.categoryText, { color: colors.primary }]}>
-                  {item.category?.name || 'General'}
-                </Text>
-              </View>
+              <Text style={[styles.categoryText, { color: colors.primary }]}>
+                {item.category?.name || 'General'}
+              </Text>
             </View>
-            
             <View style={[styles.priceBox, { backgroundColor: colors.primary + '15' }]}>
               <Text style={[styles.priceValue, { color: colors.primary }]}>
                 ₦{item.price.toLocaleString()}
@@ -101,12 +101,10 @@ export default function MenuScreen({ navigation }: any) {
             </View>
           </View>
 
-          {/* Divider */}
           <View style={[styles.divider, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]} />
 
-          {/* Actions Row */}
           <View style={styles.actionsRow}>
-            {/* Toggle Switch */}
+            {/* Availability Toggle */}
             <View style={styles.toggleSection}>
               <Switch
                 trackColor={{ false: "#D1D5DB", true: colors.success + '50' }}
@@ -115,28 +113,26 @@ export default function MenuScreen({ navigation }: any) {
                 onValueChange={() => toggleItem(item.id)}
                 value={item.available}
                 disabled={isToggling}
-                style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
+                style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
               />
-              <View style={styles.toggleTextSection}>
-                <Text style={[styles.toggleLabel, { color: colors.text }]}>
-                  Availability
-                </Text>
-                <Text style={[styles.toggleStatus, { 
-                  color: item.available ? colors.success : colors.textLight 
-                }]}>
-                  {item.available ? 'In Stock' : 'Sold Out'}
-                </Text>
-              </View>
+              <Text style={[styles.toggleStatus, { 
+                color: item.available ? colors.success : colors.textLight 
+              }]}>
+                {item.available ? 'Online' : 'Offline'}
+              </Text>
             </View>
 
-            {/* Delete Button */}
+            {/* 🟢 DELETE BUTTON */}
             <TouchableOpacity 
               onPress={() => handleDelete(item.id, item.name)}
               disabled={isDeleting}
-              style={[styles.deleteBtn, { backgroundColor: colors.danger + '15' }]}
-              activeOpacity={0.7}
+              style={[styles.deleteBtn, { backgroundColor: colors.danger + '10' }]}
             >
-              <Ionicons name="trash-outline" size={20} color={colors.danger} />
+              {isDeleting ? (
+                <ActivityIndicator size="small" color={colors.danger} />
+              ) : (
+                <Ionicons name="trash-outline" size={18} color={colors.danger} />
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -146,49 +142,55 @@ export default function MenuScreen({ navigation }: any) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Header title="Menu Management" showNotification={false} />
+      <Header title="Menu" subtitle="Manage your dishes" showNotification={false} />
 
-      {/* Quick Stats Bar */}
-      <View style={[styles.statsContainer, { backgroundColor: colors.surface }]}>
-        <View style={styles.statCard}>
-          <View style={[styles.statIconBox, { backgroundColor: colors.primary + '15' }]}>
-            <Ionicons name="restaurant" size={20} color={colors.primary} />
+      {/* --- RESPONSIVE QUICK STATS (Horizontal Scroll) --- */}
+      <View style={styles.statsWrapper}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.statsScrollContent}
+        >
+          {/* Card 1: Total Items */}
+          <View style={[styles.statCardNew, { backgroundColor: colors.surface }]}>
+            <View style={[styles.statIconBoxNew, { backgroundColor: colors.primary + '15' }]}>
+              <Ionicons name="fast-food" size={20} color={colors.primary} />
+            </View>
+            <View>
+              <Text style={[styles.statValueNew, { color: colors.text }]}>{menuItems.length}</Text>
+              <Text style={[styles.statLabelNew, { color: colors.textLight }]}>Total Dishes</Text>
+            </View>
           </View>
-          <View>
-            <Text style={[styles.statValue, { color: colors.text }]}>{menuItems.length}</Text>
-            <Text style={[styles.statLabel, { color: colors.textLight }]}>Total Items</Text>
+
+          {/* Card 2: Active */}
+          <View style={[styles.statCardNew, { backgroundColor: colors.surface }]}>
+            <View style={[styles.statIconBoxNew, { backgroundColor: '#DCFCE7' }]}>
+              <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+            </View>
+            <View>
+              <Text style={[styles.statValueNew, { color: colors.text }]}>
+                {menuItems.filter((i: any) => i.available).length}
+              </Text>
+              <Text style={[styles.statLabelNew, { color: colors.textLight }]}>Active</Text>
+            </View>
           </View>
-        </View>
-        
-        <View style={[styles.statDivider, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]} />
-        
-        <View style={styles.statCard}>
-          <View style={[styles.statIconBox, { backgroundColor: colors.success + '15' }]}>
-            <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+
+          {/* Card 3: Inactive */}
+          <View style={[styles.statCardNew, { backgroundColor: colors.surface }]}>
+            <View style={[styles.statIconBoxNew, { backgroundColor: '#FEE2E2' }]}>
+              <Ionicons name="close-circle" size={20} color={colors.danger} />
+            </View>
+            <View>
+              <Text style={[styles.statValueNew, { color: colors.text }]}>
+                {menuItems.filter((i: any) => !i.available).length}
+              </Text>
+              <Text style={[styles.statLabelNew, { color: colors.textLight }]}>Sold Out</Text>
+            </View>
           </View>
-          <View>
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {menuItems.filter((i: any) => i.available).length}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textLight }]}>Available</Text>
-          </View>
-        </View>
-        
-        <View style={[styles.statDivider, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]} />
-        
-        <View style={styles.statCard}>
-          <View style={[styles.statIconBox, { backgroundColor: colors.textLight + '15' }]}>
-            <Ionicons name="close-circle" size={20} color={colors.textLight} />
-          </View>
-          <View>
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {menuItems.filter((i: any) => !i.available).length}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textLight }]}>Out of Stock</Text>
-          </View>
-        </View>
+        </ScrollView>
       </View>
 
+      {/* Main Content */}
       {isLoading && !menuItems.length ? (
         <View style={styles.centerContent}>
           <ActivityIndicator color={colors.primary} size="large" />
@@ -204,28 +206,19 @@ export default function MenuScreen({ navigation }: any) {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <View style={[styles.emptyIconCircle, { backgroundColor: colors.primary + '15' }]}>
-                <Ionicons name="restaurant-outline" size={64} color={colors.primary} />
+              <View style={[styles.emptyIconCircle, { backgroundColor: colors.primary + '10' }]}>
+                <Ionicons name="restaurant-outline" size={50} color={colors.primary} />
               </View>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                No menu items yet
-              </Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>Empty Menu</Text>
               <Text style={[styles.emptySubtitle, { color: colors.textLight }]}>
-                Start building your menu by adding your first delicious dish
+                Add your first dish to start selling.
               </Text>
-              <TouchableOpacity 
-                style={[styles.emptyButton, { backgroundColor: colors.primary }]}
-                onPress={() => navigation.navigate('AddMenuItem', { restaurantId })}
-              >
-                <Ionicons name="add-circle" size={20} color="white" />
-                <Text style={styles.emptyButtonText}>Add First Item</Text>
-              </TouchableOpacity>
             </View>
           }
         />
       )}
 
-      {/* Floating Action Button */}
+      {/* FAB */}
       <TouchableOpacity 
         style={[styles.fab, { backgroundColor: colors.primary }]}
         onPress={() => navigation.navigate('AddMenuItem', { restaurantId })}
@@ -240,243 +233,103 @@ export default function MenuScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  
-  // Stats Container
-  statsContainer: {
-    flexDirection: 'row',
-    marginHorizontal: SPACING.m,
-    marginBottom: SPACING.m,
-    paddingVertical: SPACING.m,
-    paddingHorizontal: SPACING.s,
-    borderRadius: 20,
-    ...SHADOWS.small
+
+  // --- STATS STYLES ---
+  statsWrapper: {
+    height: 85, 
+    marginBottom: SPACING.s,
+    marginTop: SPACING.s,
   },
-  statCard: {
-    flex: 1,
+  statsScrollContent: {
+    paddingHorizontal: SPACING.m,
+    paddingRight: SPACING.l,
+    alignItems: 'center', 
+  },
+  statCardNew: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    marginRight: 12,
+    minWidth: 150,   
+    ...SHADOWS.small,
   },
-  statIconBox: {
-    width: 40,
-    height: 40,
+  statIconBoxNew: {
+    width: 38,
+    height: 38,
     borderRadius: 12,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    marginRight: 12,
   },
-  statValue: {
-    fontSize: 20,
+  statValueNew: {
+    fontSize: 18,
     fontWeight: '800',
-    marginBottom: 2
+    marginBottom: 2,
   },
-  statLabel: {
-    fontSize: 10,
+  statLabelNew: {
+    fontSize: 11,
     fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: 0.5
+    letterSpacing: 0.5,
   },
-  statDivider: {
-    width: 1,
-    height: '70%',
-    alignSelf: 'center',
-    marginHorizontal: 4
-  },
-  
-  // List
+
+  // --- LIST STYLES ---
   listContent: { 
     padding: SPACING.m, 
     paddingBottom: 100 
   },
-  
-  // Item Card
   itemCard: { 
     borderRadius: 20,
     marginBottom: SPACING.m,
     overflow: 'hidden',
-    ...SHADOWS.medium
+    ...SHADOWS.small 
   },
-  
-  // Image Section
   imageContainer: {
     position: 'relative',
-    height: 180,
+    height: 160, 
     width: '100%'
   },
-  dishImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover'
-  },
-  imagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
+  dishImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  imagePlaceholder: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
+  
   statusBadgeOverlay: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-    gap: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4
+    top: 10, right: 10,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 20,
   },
-  statusBadgeText: {
-    color: 'white',
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5
-  },
+  statusBadgeText: { color: 'white', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
+
+  itemContent: { padding: 14 },
+  itemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  itemTitleSection: { flex: 1, marginRight: 10 },
+  itemName: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
+  categoryText: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase' },
   
-  // Content Section
-  itemContent: {
-    padding: SPACING.m
-  },
-  itemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: SPACING.m
-  },
-  itemTitleSection: {
-    flex: 1,
-    marginRight: SPACING.m
-  },
-  itemName: {
-    fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 8,
-    letterSpacing: -0.3
-  },
-  categoryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-start'
-  },
-  categoryText: {
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5
-  },
-  priceBox: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-    minWidth: 80,
-    alignItems: 'center'
-  },
-  priceValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: -0.5
-  },
+  priceBox: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  priceValue: { fontSize: 15, fontWeight: '800' },
+
+  divider: { height: 1, marginVertical: 12, opacity: 0.5 },
+
+  actionsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  toggleSection: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  toggleStatus: { fontSize: 13, fontWeight: '600' },
   
-  divider: {
-    height: 1,
-    marginVertical: SPACING.m
-  },
-  
-  // Actions Row
-  actionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  toggleSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1
-  },
-  toggleTextSection: {
-    flex: 1
-  },
-  toggleLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2
-  },
-  toggleStatus: {
-    fontSize: 14,
-    fontWeight: '700'
-  },
-  deleteBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  
-  // FAB
-  fab: { 
-    position: 'absolute', 
-    bottom: 30, 
-    right: 20, 
-    width: 64, 
-    height: 64, 
-    borderRadius: 32, 
-    alignItems: 'center', 
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8
-  },
-  
+  deleteBtn: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+
   // Empty State
-  emptyState: { 
-    alignItems: 'center', 
-    marginTop: 80,
-    paddingHorizontal: 40
+  emptyState: { alignItems: 'center', marginTop: 60, paddingHorizontal: 40 },
+  emptyIconCircle: { width: 100, height: 100, borderRadius: 50, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  emptyTitle: { fontSize: 20, fontWeight: '800', marginBottom: 8 },
+  emptySubtitle: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
+
+  fab: { 
+    position: 'absolute', bottom: 30, right: 20, 
+    width: 60, height: 60, borderRadius: 30, 
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 8, elevation: 8
   },
-  emptyIconCircle: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24
-  },
-  emptyTitle: { 
-    fontSize: 24,
-    fontWeight: '800',
-    marginBottom: 10,
-    textAlign: 'center'
-  },
-  emptySubtitle: { 
-    fontSize: 15,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 30
-  },
-  emptyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 14,
-    gap: 8,
-    ...SHADOWS.medium
-  },
-  emptyButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '800'
-  }
 });

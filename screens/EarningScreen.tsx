@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, 
-  TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, RefreshControl 
+  TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, RefreshControl 
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native'; // 👈 Added for auto-refresh
 import { SPACING, SHADOWS, COLORS } from "../constants/theme";
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Header from '../components/HeaderTemp';
@@ -10,8 +11,8 @@ import { useTheme } from '../context/themeContext';
 import { useAuth } from '../context/authContext';
 import { useRestaurantEarnings, useRestaurantTransactions, useRequestPayout } from '../services/restaurant/restaurant.queries';
 import { Transaction } from '../types/restaurant.types';
-// 1. Import Schema
 import { createPayoutSchema } from '../utils/schema';
+import { toast } from '../components/ui/Toast'; // 👈 Import Toast
 
 export default function EarningsScreen() {
   const { colors, isDark } = useTheme();
@@ -42,24 +43,35 @@ export default function EarningsScreen() {
   const availableBalance = earnings?.availableBalance ?? 0;
   const pendingBalance = earnings?.pendingBalance ?? 0;
 
-  const onRefresh = () => {
+  // 🟢 1. REFRESH LOGIC
+  const onRefresh = useCallback(() => {
     refetchEarnings();
     refetchTxns();
-  };
+  }, [refetchEarnings, refetchTxns]);
+
+  // 🟢 2. AUTO-REFRESH ON SCREEN FOCUS
+  useFocusEffect(
+    useCallback(() => {
+      onRefresh();
+    }, [onRefresh])
+  );
 
   const handleWithdrawPress = () => {
     if (availableBalance < 1000) {
-      Alert.alert("Insufficient Balance", `You need at least ₦1,000 to withdraw.\nCurrent: ₦${availableBalance.toLocaleString()}`);
+      // 🟢 Replaced Alert with Toast
+      toast.error(`Insufficient Balance`, {
+        description: `You need at least ₦1,000 to withdraw.`
+      });
       return;
     }
     setModalVisible(true);
   };
 
   const handleConfirmPayout = () => {
-    // 2. Create Dynamic Schema based on Balance
+    // Create Dynamic Schema based on Balance
     const schema = createPayoutSchema(availableBalance);
 
-    // 3. Validate
+    // Validate
     const result = schema.safeParse({
       amount: form.amount,
       bankName: form.bankName,
@@ -68,12 +80,12 @@ export default function EarningsScreen() {
     });
 
     if (!result.success) {
-      // Show first error in Alert since it's a modal
-      Alert.alert("Validation Error", result.error.issues[0].message);
+      // 🟢 Replaced Alert with Toast
+      toast.error(result.error.issues[0].message);
       return;
     }
 
-    // 4. Proceed with Valid Data
+    // Proceed with Valid Data
     payout({
       restaurantId,
       amount: result.data.amount,
@@ -86,10 +98,16 @@ export default function EarningsScreen() {
       onSuccess: () => {
         setModalVisible(false);
         setForm({ amount: "", bankName: "", accountNumber: "", accountName: "" });
-        Alert.alert("Success", "Payout request submitted.");
+        // 🟢 Replaced Alert with Toast
+        // Note: If your hook also has a toast, you can remove this one to avoid duplicates.
+        // Keeping it here ensures UI feedback is immediate.
+        toast.success("Payout Request Submitted");
         onRefresh();
       },
-      onError: (err: any) => Alert.alert("Payout Failed", err.response?.data?.message || "Something went wrong")
+      onError: (err: any) => {
+        // 🟢 Replaced Alert with Toast
+        toast.error(err.response?.data?.message || "Payout failed");
+      }
     });
   };
 

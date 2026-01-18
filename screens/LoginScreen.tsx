@@ -7,8 +7,7 @@ import { StatusBar } from "expo-status-bar";
 import { useTheme } from "../context/themeContext";
 import { SPACING, SHADOWS, COLORS } from "../constants/theme";
 import { useAuth } from "../context/authContext"; 
-import { SafeAreaProvider } from "react-native-safe-area-context";
-// 1. Import Schema
+import { SafeAreaView } from "react-native-safe-area-context"; 
 import { loginSchema } from "../utils/schema";
 
 export default function LoginScreen({ navigation }: any) {
@@ -16,14 +15,11 @@ export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // 2. Error State
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const { login } = useAuth(); 
 
   const handleLogin = async () => {
-    // 3. Validate with Zod
     const result = loginSchema.safeParse({ email, password });
 
     if (!result.success) {
@@ -35,12 +31,10 @@ export default function LoginScreen({ navigation }: any) {
       return;
     }
 
-    // Clear errors if valid
     setErrors({});
 
     try {
       setLoading(true);
-      // Use validated data
       const data = await login({ email: result.data.email, password: result.data.password });
 
       if (data.requireOtp) {
@@ -64,7 +58,7 @@ export default function LoginScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaProvider style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? "light" : "dark"} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -95,7 +89,7 @@ export default function LoginScreen({ navigation }: any) {
                 styles.input,
                 { 
                   backgroundColor: colors.surface, 
-                  borderColor: errors.email ? 'red' : colors.border, // Red border on error
+                  borderColor: errors.email ? 'red' : colors.border, 
                   color: colors.text 
                 },
               ]}
@@ -166,7 +160,7 @@ export default function LoginScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaProvider>
+    </SafeAreaView>
   );
 }
 
@@ -189,7 +183,7 @@ const styles = StyleSheet.create({
   inputGroup: { marginBottom: SPACING.l },
   label: { fontSize: 14, fontWeight: "600", marginBottom: 8 },
   input: { borderWidth: 1, borderRadius: 12, padding: 16, fontSize: 16 },
-  errorText: { color: 'red', fontSize: 12, marginTop: 4 }, // Added Error Style
+  errorText: { color: 'red', fontSize: 12, marginTop: 4 }, 
   forgotText: { textAlign: "right", fontWeight: "600", marginBottom: SPACING.l },
   button: { paddingVertical: 18, borderRadius: 12, alignItems: "center", ...SHADOWS.small },
   buttonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "bold" },

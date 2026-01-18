@@ -1,18 +1,16 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  RefreshControl, StatusBar, ActivityIndicator, Platform // 👈 Added Platform
+  RefreshControl, StatusBar, ActivityIndicator, Platform 
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"; 
 import { useAuth } from "../context/authContext";
 import { useGetVendorOrders, useUpdateOrderStatus } from "../services/order/order.queries";
 import { Order, OrderStatus } from "../types/order.types";
 import { format } from "date-fns"; 
 import { getTimeAgo } from "@/hooks/usegetTime";
-import { toast } from '../components/ui/Toast';
 
-// --- THEME COLORS ---
 const COLORS = {
   primary: "#7B1E3A",       
   primaryLight: "#7B1E3A15", 
@@ -34,6 +32,7 @@ const PLATFORM_FEE = 350;
 export default function DashboardScreen() {
   const { user } = useAuth();
   const restaurantId = user?.restaurant?.id || "";
+  const insets = useSafeAreaInsets(); 
 
   const { data: ordersResponse, isLoading, refetch, isRefetching } = useGetVendorOrders(restaurantId);
   const { mutate: updateStatus, isPending: isUpdating } = useUpdateOrderStatus();
@@ -41,8 +40,6 @@ export default function DashboardScreen() {
   const [activeTab, setActiveTab] = useState<TabType>("PENDING");
   const [, forceUpdate] = useState(0);
 
-  
-  // Safe Data Access
   const orders: Order[] = Array.isArray(ordersResponse) ? ordersResponse : (ordersResponse?.data || []);
 
   const filteredOrders = useMemo(() => {
@@ -69,7 +66,6 @@ export default function DashboardScreen() {
         <Text style={styles.dateText}>{format(new Date(), "EEEE, d MMMM")}</Text>
         <Text style={styles.restaurantName}>{user?.restaurant?.name || "My Restaurant"}</Text>
       </View>
-      
     </View>
   );
 
@@ -113,8 +109,8 @@ export default function DashboardScreen() {
     if (item.status === 'DELIVERED') { statusColor = COLORS.success; statusBg = '#ECFDF5'; statusIcon = 'checkmark-circle-outline'; }
 
     const foodSubtotal = item.totalAmount - item.deliveryFee - PLATFORM_FEE;
-    const chowEazyShare = foodSubtotal * 0.15;
     const vendorShare = item.vendorFoodTotal;
+    const chowEazyShare = foodSubtotal * 0.15;
 
     return (
       <View style={styles.card}>
@@ -131,7 +127,6 @@ export default function DashboardScreen() {
             <Text style={styles.timeAgo}>{getTimeAgo(new Date(item.createdAt))}</Text> 
         </View>
 
-        {/* Customer Info */}
         <View style={styles.customerRow}>
             <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{item.customer?.name?.[0] || "G"}</Text>
@@ -144,7 +139,6 @@ export default function DashboardScreen() {
             </View>
         </View>
 
-        {/* Breakdown Card */}
         {activeTab === 'PENDING' && (
           <View style={styles.breakdownContainer}>
               <View style={styles.breakdownRow}>
@@ -165,16 +159,13 @@ export default function DashboardScreen() {
           </View>
         )}
 
-        {/* --- MODIFIED ITEMS CONTAINER --- */}
         <View style={styles.itemsContainer}>
             <Text style={styles.itemsHeader}>{item.items.length} Items</Text>
-            
             {item.items.map((i, index) => (
                 <Text key={index} style={styles.itemName}>
                     {i.quantity}x {i.menuItemName}
                 </Text>
             ))}
-            
             {activeTab !== 'PENDING' && (
                 <View style={styles.totalRow}>
                     <Text style={styles.totalLabel}>Your Earning</Text>
@@ -183,9 +174,7 @@ export default function DashboardScreen() {
             )}
         </View>
 
-        {/* Actions */}
         <View style={styles.actionFooter}>
-             {/* 1. PENDING */}
              {item.status === "PENDING" && (
                 <>
                     <TouchableOpacity 
@@ -205,7 +194,6 @@ export default function DashboardScreen() {
                 </>
              )}
 
-             {/* 2. PREPARING */}
              {item.status === "PREPARING" && (
                 <TouchableOpacity 
                     style={[styles.btnPrimary, { width: '100%', backgroundColor: COLORS.primary }]}
@@ -221,10 +209,8 @@ export default function DashboardScreen() {
                 </TouchableOpacity>
              )}
 
-             {/* 3. READY FOR PICKUP */}
              {item.status === "READY_FOR_PICKUP" && (
                  <>
-                    {/* CASE A: RIDER ASSIGNED */}
                     {item.riderName ? (
                         <View style={[styles.waitingState, { backgroundColor: '#ECFDF5' }]}>
                              <View style={[styles.pulse, { backgroundColor: COLORS.success }]} />
@@ -241,7 +227,6 @@ export default function DashboardScreen() {
                              </TouchableOpacity>
                           </View>
                     ) : (
-                    /* CASE B: LOOKING FOR RIDER */
                         <View style={styles.waitingState}>
                             <View style={styles.pulse} />
                             <Text style={styles.waitingText}>Broadcasting to Riders...</Text>
@@ -250,7 +235,6 @@ export default function DashboardScreen() {
                  </>
              )}
              
-             {/* 4. HISTORY */}
              {["DELIVERED", "OUT_FOR_DELIVERY", "CANCELLED", "REFUNDED"].includes(item.status) && (
                  <TouchableOpacity style={[styles.btnOutline, { width: '100%', borderColor: '#E5E7EB' }]}>
                     <Text style={[styles.btnOutlineText, {color: COLORS.textLight}]}>View Details</Text>
@@ -284,9 +268,15 @@ export default function DashboardScreen() {
         data={filteredOrders}
         renderItem={renderOrder}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        // 🟢 PWA FIX: Add bottom safe area so list isn't hidden by home bar
+        contentContainerStyle={[styles.listContent, { paddingBottom: 100 + insets.bottom }]}
         ListEmptyComponent={!isLoading ? renderEmpty : null}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={COLORS.primary} />}
+        initialNumToRender={8}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={false} // 🟢 Disable clipped subviews on Web to prevent blank spaces
+        showsVerticalScrollIndicator={false}
       />
     </SafeAreaView>
   );
@@ -301,7 +291,20 @@ const styles = StyleSheet.create({
   statusContainer: { alignItems: 'flex-end' },
   statusText: { fontSize: 12, fontWeight: '700', marginBottom: 4 },
   
-  tabContainer: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 15, backgroundColor: 'white', borderRadius: 12, padding: 4, elevation: 1 },
+  tabContainer: { 
+    flexDirection: 'row', 
+    marginHorizontal: 20, 
+    marginBottom: 15, 
+    backgroundColor: 'white', 
+    borderRadius: 12, 
+    padding: 4, 
+    // 🟢 PWA FIX: Shadow Box works on Web & iOS
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2, 
+  },
   tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8, flexDirection: 'row', justifyContent: 'center', gap: 6 },
   activeTab: { backgroundColor: COLORS.primary },
   tabText: { fontSize: 12, fontWeight: '700', color: COLORS.textLight },
@@ -309,7 +312,7 @@ const styles = StyleSheet.create({
   badge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, minWidth: 20, alignItems: 'center' },
   badgeText: { fontSize: 10, fontWeight: '700' },
   
-  listContent: { paddingHorizontal: 20, paddingBottom: 100 },
+  listContent: { paddingHorizontal: 20 }, 
   card: { backgroundColor: 'white', borderRadius: 16, marginBottom: 16, padding: 16, shadowColor: '#000', shadowOffset: {width:0, height:2}, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   orderIdRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -324,7 +327,6 @@ const styles = StyleSheet.create({
   customerName: { fontSize: 14, fontWeight: '700', color: COLORS.text },
   customerAddress: { fontSize: 12, color: COLORS.textLight, maxWidth: 200 },
   
-  // Breakdown Styles
   breakdownContainer: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: '#E2E8F0' },
   breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   breakdownLabel: { fontSize: 12, color: COLORS.textLight },

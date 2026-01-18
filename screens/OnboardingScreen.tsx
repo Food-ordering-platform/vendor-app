@@ -15,7 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 const SLIDES = [
   {
     id: '1',
-    icon: 'megaphone', // Filled icons look better
+    icon: 'megaphone', 
     title: 'Expand Your Reach',
     subtitle: 'Connect with thousands of hungry customers in your area instantly.',
   },
@@ -53,15 +53,20 @@ export default function OnboardingScreen({ navigation }: any) {
     }
   };
 
-  const updateCurrentSlideIndex = (e: any) => {
-    const contentOffsetX = e.nativeEvent.contentOffset.x;
-    const currentIndex = Math.round(contentOffsetX / width);
-    setCurrentSlideIndex(currentIndex);
-  };
+  // 🟢 FIXED: Detect active slide immediately when 50% visible
+  // This makes the swipe feel responsive because it updates BEFORE the scroll stops
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (viewableItems && viewableItems.length > 0) {
+      setCurrentSlideIndex(viewableItems[0].index);
+    }
+  }).current;
+
+  const viewabilityConfig = useRef({
+    viewAreaCoveragePercentThreshold: 50,
+  }).current;
 
   const renderItem = ({ item }: { item: typeof SLIDES[0] }) => (
     <View style={[styles.slide, { width }]}>
-      {/* 🎨 Icon Background Circle */}
       <View style={styles.iconCircle}>
         <Ionicons name={item.icon as any} size={80} color={COLORS.primary} />
       </View>
@@ -74,21 +79,31 @@ export default function OnboardingScreen({ navigation }: any) {
   );
 
   return (
-    // 🎨 Warm Background Color matching branding
     <SafeAreaView style={[styles.container, { backgroundColor: '#FDF8F9' }]}>
       <StatusBar style="dark" />
       
       <FlatList
         ref={flatListRef}
-        onMomentumScrollEnd={updateCurrentSlideIndex}
+        // 🟢 UPDATED: Replaced onMomentumScrollEnd with onViewableItemsChanged
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        scrollEventThrottle={32}
+        
+        // 🟢 ADDED: getItemLayout ensures smoother snapping
+        getItemLayout={(data, index) => ({
+          length: width,
+          offset: width * index,
+          index,
+        })}
+
         contentContainerStyle={{ alignItems: 'center', paddingTop: height * 0.1 }}
         showsHorizontalScrollIndicator={false}
         horizontal
         data={SLIDES}
         pagingEnabled
+        bounces={false} // Prevents overscrolling on iOS
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
-        scrollEventThrottle={32}
       />
 
       <View style={[styles.footer, { height: height * 0.25 }]}>
@@ -145,27 +160,25 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   slide: { alignItems: 'center', justifyContent: 'flex-start' },
   
-  // 🎨 New Icon Styling
   iconCircle: {
     height: 180,
     width: 180,
     borderRadius: 90,
-    backgroundColor: '#FFEBF0', // Very light version of your Wine color
+    backgroundColor: '#FFEBF0', 
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 40,
-    ...SHADOWS.medium, // Adds depth
+    ...SHADOWS.medium, 
     shadowColor: COLORS.primary,
     shadowOpacity: 0.1,
   },
   
   textContainer: { paddingHorizontal: 40, alignItems: 'center' },
   
-  // 🎨 Typography Upgrade
   title: { 
-    color: '#2D1B21', // Darker, richer text color
+    color: '#2D1B21', 
     fontSize: 32, 
-    fontWeight: '800', // Extra Bold
+    fontWeight: '800', 
     textAlign: 'center', 
     marginBottom: 16,
     letterSpacing: -0.5
@@ -186,15 +199,14 @@ const styles = StyleSheet.create({
   
   btnContainer: { marginBottom: 10 },
   
-  // 🎨 "Alive" Button Styling
   primaryBtn: {
     height: 56,
-    borderRadius: 30, // Pill shape
+    borderRadius: 30, 
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
     ...SHADOWS.medium,
-    shadowColor: COLORS.primary, // Colored shadow (Glow effect)
+    shadowColor: COLORS.primary, 
     shadowOpacity: 0.4,
     shadowRadius: 12,
     elevation: 8,

@@ -8,7 +8,7 @@ import { COLORS } from "./constants/theme";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./context/authContext";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, View, Platform, StyleSheet } from "react-native"; 
 import { useOrderNotification } from "./hooks/useOrderNotification";
 import * as Linking from "expo-linking";
 import { Toaster } from "./components/ui/Toast";
@@ -30,11 +30,8 @@ import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import TermsScreen from "./screens/TermsScreen";
 import PrivacyScreen from './screens/PrivacyScreen';
 import SetupLocationScreen from './screens/SetupLocationScreen';
-import VerificationPendingScreen from "./screens/VerificationPendingScreen"; 
-
 import { ThemeProvider } from "./context/themeContext";
 import { SocketProvider } from "./context/socketContext";
-// 🟢 IMPORT THE BANNER
 import { PWAInstallBanner } from "./components/PWAInstallBanner";
 
 const Stack = createNativeStackNavigator();
@@ -71,23 +68,28 @@ const linking: LinkingOptions<any> = {
 
 function VendorTabs() {
   const insets = useSafeAreaInsets();
+  
+  // 🟢 PWA SPECIFIC FIX:
+  // On web, insets.bottom might be 0 initially. We force a minimum height 
+  // and use CSS 'env()' to respect the iPhone notch area explicitly.
+  const isWeb = Platform.OS === 'web';
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textLight,
-        tabBarStyle: {
-          backgroundColor: "#fff",
-          borderTopWidth: 0,
-          elevation: 10,
-          shadowColor: "#000",
-          shadowOpacity: 0.1,
-          shadowRadius: 10,
-          height: 85 + (insets.bottom > 0 ? insets.bottom : 10),
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
-          paddingTop: 10,
-        },
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            // Dynamic height: Base 65 + Safe Area
+            height: 65 + (insets.bottom > 0 ? insets.bottom : 10),
+            paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
+          },
+          // 🟢 CSS Fallback for PWA Safe Area
+          isWeb && { paddingBottom: "env(safe-area-inset-bottom)" as any }
+        ],
         tabBarIcon: ({ color, focused }) => {
           let iconName: any;
           if (route.name === "Orders") iconName = focused ? "fast-food" : "fast-food-outline";
@@ -132,11 +134,7 @@ function NavigationContent() {
             </>
           ) : (
             <>
-              <Stack.Screen
-                name="Profile"
-                component={ProfileScreen}
-                initialParams={{ isOnboarding: true }}
-              />
+              <Stack.Screen name="Profile" component={ProfileScreen} initialParams={{ isOnboarding: true }} />
               <Stack.Screen name="SetupLocation" component={SetupLocationScreen} />
             </>
           )
@@ -167,13 +165,8 @@ export default function App() {
           <SafeAreaProvider>
             <ThemeProvider>
               <NavigationContent />
-              
-              {/* 🟢 GLOBAL OVERLAYS */}
               <Toaster /> 
-              
-              {/* 🟢 ADDED: PWA Install Banner */}
               <PWAInstallBanner />
-             
             </ThemeProvider>
           </SafeAreaProvider>
         </SocketProvider>
@@ -181,3 +174,16 @@ export default function App() {
     </QueryClientProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: "#fff",
+    borderTopWidth: 0,
+    paddingTop: 10,
+    elevation: 10, // Android shadow
+    shadowColor: "#000", // iOS/Web shadow
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  }
+});
