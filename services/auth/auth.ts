@@ -13,6 +13,7 @@ import {
   VerifyResetOtpResponse,
   ResetPasswordPayload,
   ResetPasswordResponse,
+  WebPushSubscriptionPayload,
 } from "../../types/auth.types";
 
 export const authService = {
@@ -91,5 +92,9 @@ export const authService = {
       console.error("Get current user error:", error.response?.data || error.message);
       throw error;
     }
+  },
+  subscribeToWebPush: async (subscription: WebPushSubscriptionPayload) => {
+    const { data } = await api.post("/auth/web-push/subscribe", { subscription });
+    return data;
   },
 };

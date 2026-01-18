@@ -7,7 +7,8 @@ import {
   VerifyOtpPayload, 
   VerifyOtpResponse, 
   VerifyResetOtpPayload,
-  VerifyResetOtpResponse
+  VerifyResetOtpResponse,
+  WebPushSubscriptionPayload
 } from '../../types/auth.types';
 import { toast } from '../../components/ui/Toast'; // 👈 Import Toast
 
@@ -97,5 +98,15 @@ export const useVerifyResetOtp = () => {
       const msg = error?.response?.data?.message || error.message || "Invalid or expired code";
       toast.error(msg);
     }
+  });
+};
+
+export const useSubscribeToWebPush = () => {
+  return useMutation({
+    mutationFn: (subscription: WebPushSubscriptionPayload) =>
+      authService.subscribeToWebPush(subscription),
+    onError: (error) => {
+      console.error("Failed to sync web push subscription:", error);
+    },
   });
 };
