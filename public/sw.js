@@ -1,7 +1,7 @@
+//
 const CACHE_NAME = 'choweazy-vendor-v1';
 const OFFLINE_URL = '/';
 
-// 1. INSTALL: Cache offline page
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
@@ -11,12 +11,10 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// 2. ACTIVATE: Claim clients immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-// 3. FETCH: Serve offline page if network fails
 self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
     event.respondWith(
@@ -25,24 +23,25 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// 4. PUSH LISTENER: Handles background notifications
 self.addEventListener('push', function(event) {
   if (!(self.Notification && self.Notification.permission === 'granted')) {
     return;
   }
 
   const data = event.data ? event.data.json() : {};
-  const title = data.title || "New Order! 🥘";
-  const message = data.body || "You have a new order waiting.";
+  const title = data.title || "New Order! 🔔";
+  const message = data.body || "Open app to accept order.";
   const icon = '/vendor_logo.png'; 
 
   const options = {
     body: message,
     icon: icon,
     badge: icon,
-    vibrate: [200, 100, 200, 100, 200],
+    // Aggressive vibration: 500ms vibrate, 200ms pause, repeat
+    vibrate: [500, 200, 500, 200, 500, 200, 1000], 
     tag: 'new-order', 
-    renotify: true,
+    renotify: true, // Vibrate again even if notification is already showing
+    requireInteraction: true, // Keeps notification on screen until user clicks it
     data: {
       url: '/' 
     },
@@ -56,22 +55,18 @@ self.addEventListener('push', function(event) {
   );
 });
 
-// 🟢 5. NOTIFICATION CLICK (Fixed: Added 'self.')
 self.addEventListener('notificationclick', function(event) {
   event.notification.close(); 
 
   event.waitUntil(
-    // 🟢 Fix: Use 'self.clients' instead of just 'clients'
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-      // 1. If app is already open, focus it
       for (let i = 0; i < clientList.length; i++) {
         let client = clientList[i];
         if (client.url === '/' && 'focus' in client) {
           return client.focus();
         }
       }
-      // 2. If app is closed, open a new window
-      if (self.clients.openWindow) { // 🟢 Fix: Use 'self.clients' here too
+      if (self.clients.openWindow) {
         return self.clients.openWindow('/');
       }
     })

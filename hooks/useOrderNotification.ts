@@ -1,3 +1,4 @@
+//
 import { useEffect, useRef } from 'react';
 import { useSocket } from '../context/socketContext';
 import { Alert, Vibration, Platform } from 'react-native';
@@ -8,48 +9,38 @@ export const useOrderNotification = () => {
   const { socket } = useSocket();
   const queryClient = useQueryClient();
   
-  // Ref to control the "speaking" loop
-  const speechInterval = useRef<NodeJS.Timeout | number | null>(null);
+  // Ref to control the ringtone
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const stopAnnouncing = () => {
+  const stopRinging = () => {
     // 1. Stop Vibration
     Vibration.cancel();
 
-    // 2. Stop Speech (Web)
-    if (Platform.OS === 'web' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel(); // Stop talking immediately
-      if (speechInterval.current) {
-        clearInterval(speechInterval.current); // Stop the loop
-        speechInterval.current = null;
-      }
+    // 2. Stop Ringtone (Web)
+    if (Platform.OS === 'web' && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0; // Reset to start
     }
   };
 
-  const startAnnouncing = (message: string) => {
-    // 1. Vibrate Phone (SOS Pattern)
-    const PATTERN = [0, 1000, 500, 1000, 500, 1000]; 
-    Vibration.vibrate(PATTERN, true);
+  const startRinging = () => {
+    // 1. Vibrate Phone (SOS Pattern - Long and Aggressive)
+    // [Wait, Vibrate, Wait, Vibrate...]
+    const PATTERN = [0, 1000, 200, 1000, 200, 1000, 200, 2000]; 
+    Vibration.vibrate(PATTERN, true); // True = Loop vibration
 
-    // 2. Speak (Web Only)
-    if (Platform.OS === 'web' && 'speechSynthesis' in window) {
-      const speak = () => {
-        // Create a new utterance every time to ensure it speaks
-        const utterance = new SpeechSynthesisUtterance(message);
-        utterance.rate = 1.0; // Speed (0.1 to 10)
-        utterance.pitch = 1.0; // Pitch (0 to 2)
-        utterance.volume = 1.0; // Volume (0 to 1)
-        window.speechSynthesis.speak(utterance);
-      };
+    // 2. Play Ringtone (Web Only)
+    if (Platform.OS === 'web') {
+      // Ensure you have this file in public/sounds/ringtone.mp3
+      if (!audioRef.current) {
+        audioRef.current = new Audio('/sounds/ringtone.mp3');
+        audioRef.current.loop = true; // LOOP INDEFINITELY
+      }
 
-      // Speak immediately
-      speak();
-
-      // Loop every 4 seconds until they open the app/alert
-      speechInterval.current = setInterval(() => {
-        if (!window.speechSynthesis.speaking) {
-          speak();
-        }
-      }, 4000);
+      // Play and catch auto-play errors (browsers require interaction usually)
+      audioRef.current.play().catch(e => {
+        console.warn("Audio autoplay blocked until interaction:", e);
+      });
     }
   };
 
@@ -57,58 +48,42 @@ export const useOrderNotification = () => {
     if (!socket) return;
 
     const handleNewOrder = async (data: any) => {
-      console.log("📳 NEW ORDER:", data);
+      console.log("🔔 NEW ORDER RECEIVED:", data);
       
-      // 🟢 VOICE MESSAGE: "New Order! 4500 Naira"
-      const voiceMessage = `New Order! ${data.totalAmount} Naira.`;
-      
-      startAnnouncing(voiceMessage);
+      // Start the persistent ring/vibrate
+      startRinging();
 
-      // Show Toast on Web
+      // Show Toast on Web with "STOP" button
       if (Platform.OS === 'web') {
         toast.info(`New Order: ₦${data.totalAmount}`, {
-            duration: Infinity, 
+            duration: Infinity, // Stay open until clicked
             action: {
-                label: "View Order",
-                onClick: () => stopAnnouncing()
+                label: "Answer Order",
+                onClick: () => stopRinging()
             },
-            onDismiss: () => stopAnnouncing(),
-            description: "Click to stop the alarm."
+            onDismiss: () => stopRinging(),
+            description: "App is ringing... Click to answer."
         });
       }
 
-      // Native Alert (Mobile App Fallback)
+      // Native Alert
       Alert.alert(
-        "New Order! 🥘", 
+        "New Order Incoming!", 
         `Order worth ₦${data.totalAmount} received.`, 
         [
-          { text: "View", onPress: () => stopAnnouncing() },
-          { text: "Close", onPress: () => stopAnnouncing(), style: "cancel" }
+          { text: "View Order", onPress: () => stopRinging() },
+          { text: "Stop Ringing", onPress: () => stopRinging(), style: "cancel" }
         ]
       );
 
       await queryClient.invalidateQueries({ queryKey: ['vendorOrders'] });
     };
 
-    const handleOrderUpdate = async (data: any) => {
-      await queryClient.invalidateQueries({ queryKey: ['vendorOrders'] });
-      
-      // Optional: Speak status updates once (no loop)
-      if (Platform.OS === 'web' && 'speechSynthesis' in window) {
-         // e.g. "Order updated: Ready for Pickup"
-         const readableStatus = data.status.replace(/_/g, ' ');
-         const utterance = new SpeechSynthesisUtterance(`Order updated: ${readableStatus}`);
-         window.speechSynthesis.speak(utterance);
-      }
-    };
-
     socket.on("new_order", handleNewOrder);
-    socket.on("order_updated", handleOrderUpdate);
 
     return () => {
       socket.off("new_order", handleNewOrder);
-      socket.off("order_updated", handleOrderUpdate);
-      stopAnnouncing();
+      stopRinging(); // Cleanup on unmount
     };
   }, [socket, queryClient]);
 };
