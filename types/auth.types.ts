@@ -10,6 +10,7 @@ export interface RegisterData {
   phone: string; // Phone is usually mandatory for vendors
   role: "VENDOR"; // Strict typing for this app
   terms: boolean
+  restaurantName: string;
 }
 
 export interface LoginData {
@@ -19,7 +20,7 @@ export interface LoginData {
 }
 
 export interface VerifyOtpPayload {
-  token: string;
+  email: string;
   code: string;
   clientType?: "web" | "mobile"; // <--- ADDED
 }
@@ -28,7 +29,7 @@ export interface ForgotPasswordPayload {
 }
 
 export interface VerifyResetOtpPayload {
-  token: string;
+  email: string;
   code: string;
 }
 
@@ -60,9 +61,11 @@ export interface User {
 
 
 export interface VerifyOtpResponse {
+  success:boolean
   message: string;
-  user:AuthResponse['user']
-  token: string; // Final auth token
+  data: {
+    isVerified: boolean
+  } 
 }
 
 

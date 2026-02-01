@@ -18,7 +18,7 @@ import { useVerifyOtp } from '../services/auth/auth.queries';
 import { useAuth } from '../context/authContext';
 
 export default function VerifyOtpScreen({ navigation, route }: any) {
-  const { email, token: tempToken } = route.params || {};
+  const { email } = route.params || {};
   const [code, setCode] = useState('');
   
   const { mutateAsync: verifyOtp, isPending } = useVerifyOtp();
@@ -30,40 +30,29 @@ export default function VerifyOtpScreen({ navigation, route }: any) {
       return;
     }
 
-    if (!tempToken) {
-      Alert.alert("Error", "Session expired. Please try registering or logging in again.");
-      navigation.navigate("Login");
+    if (!email) {
+      Alert.alert("Email is Missing");
+      // navigation.navigate("Login");
       return;
     }
 
     try {
       // 1. Call Backend
       const result = await verifyOtp({
-        token: tempToken, 
+        email:email,
         code: code,
         clientType: 'mobile'
       });
 
       // 2. Save the FINAL access token (Platform Safe!)
-      if (result.token) {
-        if (Platform.OS === 'web') {
-          localStorage.setItem('auth_token', result.token);
-        } else {
-          await SecureStore.setItemAsync('auth_token', result.token);
-        }
-        
-        // 3. Update Global Auth State
-        // This will automatically trigger App.tsx to switch stacks (to Profile/Dashboard)
-        await refreshUser();
-        
-      } else {
-        Alert.alert("Error", "Verification successful but no token received.");
-      }
-
-    } catch (error: any) {
-      console.log("OTP Error handled in hook");
+      if (result.success) {
+        refreshUser()
+        navigation.navigate('Login');
     }
-  };
+    }
+     catch (error: any) {
+      console.log("OTP Error handled in hook");
+  }
 
   return (
     <View style={styles.container}>
@@ -161,3 +150,5 @@ const styles = StyleSheet.create({
   footerText: { color: COLORS.textLight, fontSize: 15 },
   linkText: { color: COLORS.primary, fontWeight: 'bold', fontSize: 15 },
 });
+
+}

@@ -48,11 +48,9 @@ export const useVerifyOtp = () => {
   return useMutation<VerifyOtpResponse, Error, VerifyOtpPayload>({
     mutationFn: authService.verifyOtp,
     onSuccess: (data) => {
-      if (!data.token) {
-        toast.success("Verified! Please login.");
-      } else {
-        toast.success("Verification successful");
-      }
+      if (data.success) {
+        toast.success("Verification Successful");
+      } 
     },
     onError: (error: any) => {
       let msg = error?.response?.data?.message || error.message || "Verification Failed";

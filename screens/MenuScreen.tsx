@@ -13,7 +13,7 @@ import {
   Platform // 👈 Import Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SPACING, SHADOWS, COLORS } from '../constants/theme'; // Ensure COLORS is imported
+import { SPACING, SHADOWS } from '../constants/theme'; // Ensure COLORS is imported
 import Header from '../components/HeaderTemp';
 import { useTheme } from '../context/themeContext';
 import { useAuth } from '../context/authContext';

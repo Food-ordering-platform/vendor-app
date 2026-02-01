@@ -1,16 +1,19 @@
 import React from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { NavigationContainer, LinkingOptions } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "./constants/theme";
-import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./context/authContext";
-import { ActivityIndicator, View, Platform, StyleSheet } from "react-native"; 
+import { ActivityIndicator, View, Platform, StyleSheet } from "react-native";
 import { useOrderNotification } from "./hooks/useOrderNotification";
-import * as Linking from "expo-linking";
 import { Toaster } from "./components/ui/Toast";
 
 // Screens
@@ -28,51 +31,22 @@ import ForgotPasswordScreen from "./screens/ForgotPasswordScreen";
 import VerifyResetOtpScreen from "./screens/VerifyResetOtpScreen";
 import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import TermsScreen from "./screens/TermsScreen";
-import PrivacyScreen from './screens/PrivacyScreen';
-import SetupLocationScreen from './screens/SetupLocationScreen';
+import PrivacyScreen from "./screens/PrivacyScreen";
+import SetupLocationScreen from "./screens/SetupLocationScreen";
 import { ThemeProvider } from "./context/themeContext";
 import { SocketProvider } from "./context/socketContext";
-import { PWAInstallBanner } from "./components/PWAInstallBanner";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const queryClient = new QueryClient();
 
-const linking: LinkingOptions<any> = {
-  prefixes: [Linking.createURL('/'), 'https://vendor.choweazy.vercel.app'],
-  config: {
-    screens: {
-      Splash: 'splash',
-      Onboarding: 'welcome',
-      Login: 'login',
-      Signup: 'signup',
-      Terms: 'terms',
-      Privacy: 'privacy',
-      VerifyOtp: 'verify-otp',
-      ForgotPassword: 'forgot-password',
-      VerifyResetOtp: 'verify-reset',
-      ResetPassword: 'reset-password',
-      Main: {
-        screens: {
-          Orders: 'orders',
-          Menu: 'menu',
-          Earnings: 'earnings',
-          Profile: 'profile',
-        },
-      },
-      AddMenuItem: 'add-item',
-      SetupLocation: 'setup-location',
-    },
-  },
-};
-
 function VendorTabs() {
   const insets = useSafeAreaInsets();
-  
+
   // 🟢 PWA SPECIFIC FIX:
-  // On web, insets.bottom might be 0 initially. We force a minimum height 
+  // On web, insets.bottom might be 0 initially. We force a minimum height
   // and use CSS 'env()' to respect the iPhone notch area explicitly.
-  const isWeb = Platform.OS === 'web';
+  const isWeb = Platform.OS === "web";
 
   return (
     <Tab.Navigator
@@ -88,14 +62,18 @@ function VendorTabs() {
             paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
           },
           // 🟢 CSS Fallback for PWA Safe Area
-          isWeb && { paddingBottom: "env(safe-area-inset-bottom)" as any }
+          isWeb && { paddingBottom: "env(safe-area-inset-bottom)" as any },
         ],
         tabBarIcon: ({ color, focused }) => {
           let iconName: any;
-          if (route.name === "Orders") iconName = focused ? "fast-food" : "fast-food-outline";
-          else if (route.name === "Menu") iconName = focused ? "restaurant" : "restaurant-outline";
-          else if (route.name === "Earnings") iconName = focused ? "wallet" : "wallet-outline";
-          else if (route.name === "Profile") iconName = focused ? "person" : "person-outline";
+          if (route.name === "Orders")
+            iconName = focused ? "fast-food" : "fast-food-outline";
+          else if (route.name === "Menu")
+            iconName = focused ? "restaurant" : "restaurant-outline";
+          else if (route.name === "Earnings")
+            iconName = focused ? "wallet" : "wallet-outline";
+          else if (route.name === "Profile")
+            iconName = focused ? "person" : "person-outline";
           return <Ionicons name={iconName} size={24} color={color} />;
         },
         tabBarLabelStyle: { fontSize: 12, fontWeight: "600", marginBottom: 5 },
@@ -122,7 +100,9 @@ function NavigationContent() {
   }
 
   return (
-    <NavigationContainer linking={linking} fallback={<ActivityIndicator color={COLORS.primary} />}>
+    <NavigationContainer
+      fallback={<ActivityIndicator color={COLORS.primary} />}
+    >
       <StatusBar style="dark" />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
@@ -130,12 +110,22 @@ function NavigationContent() {
             <>
               <Stack.Screen name="Main" component={VendorTabs} />
               <Stack.Screen name="AddMenuItem" component={AddMenuItemScreen} />
-              <Stack.Screen name="SetupLocation" component={SetupLocationScreen} />
+              <Stack.Screen
+                name="SetupLocation"
+                component={SetupLocationScreen}
+              />
             </>
           ) : (
             <>
-              <Stack.Screen name="Profile" component={ProfileScreen} initialParams={{ isOnboarding: true }} />
-              <Stack.Screen name="SetupLocation" component={SetupLocationScreen} />
+              <Stack.Screen
+                name="Profile"
+                component={ProfileScreen}
+                initialParams={{ isOnboarding: true }}
+              />
+              <Stack.Screen
+                name="SetupLocation"
+                component={SetupLocationScreen}
+              />
             </>
           )
         ) : (
@@ -147,9 +137,18 @@ function NavigationContent() {
             <Stack.Screen name="Terms" component={TermsScreen} />
             <Stack.Screen name="Privacy" component={PrivacyScreen} />
             <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
-            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-            <Stack.Screen name="VerifyResetOtp" component={VerifyResetOtpScreen} />
-            <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+            <Stack.Screen
+              name="ForgotPassword"
+              component={ForgotPasswordScreen}
+            />
+            <Stack.Screen
+              name="VerifyResetOtp"
+              component={VerifyResetOtpScreen}
+            />
+            <Stack.Screen
+              name="ResetPassword"
+              component={ResetPasswordScreen}
+            />
           </>
         )}
       </Stack.Navigator>
@@ -163,11 +162,12 @@ export default function App() {
       <AuthProvider>
         <SocketProvider>
           <SafeAreaProvider>
-            <ThemeProvider>
-              <NavigationContent />
-              <Toaster /> 
-              <PWAInstallBanner />
-            </ThemeProvider>
+            <GestureHandlerRootView>
+              <ThemeProvider>
+                <NavigationContent />
+                <Toaster />
+              </ThemeProvider>
+            </GestureHandlerRootView>
           </SafeAreaProvider>
         </SocketProvider>
       </AuthProvider>
@@ -185,5 +185,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-  }
+  },
 });
