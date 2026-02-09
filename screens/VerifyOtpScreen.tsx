@@ -33,7 +33,7 @@ export default function VerifyOtpScreen({ navigation, route }: any) {
     if (!email) {
       Alert.alert("Email is Missing");
       // navigation.navigate("Login");
-      return;
+      return 
     }
 
     try {
@@ -46,13 +46,13 @@ export default function VerifyOtpScreen({ navigation, route }: any) {
 
       // 2. Save the FINAL access token (Platform Safe!)
       if (result.success) {
-        refreshUser()
         navigation.navigate('Login');
     }
     }
      catch (error: any) {
       console.log("OTP Error handled in hook");
   }
+}
 
   return (
     <View style={styles.container}>
@@ -151,4 +151,3 @@ const styles = StyleSheet.create({
   linkText: { color: COLORS.primary, fontWeight: 'bold', fontSize: 15 },
 });
 
-}

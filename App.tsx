@@ -1,6 +1,6 @@
 import React from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { NavigationContainer, LinkingOptions } from "@react-navigation/native";
+import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
@@ -13,7 +13,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./context/authContext";
 import { ActivityIndicator, View, Platform, StyleSheet } from "react-native";
-import { useOrderNotification } from "./hooks/useOrderNotification";
+// import { useOrderNotification } from "./hooks/useOrderNotification";
 import { Toaster } from "./components/ui/Toast";
 
 // Screens
@@ -33,20 +33,17 @@ import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import TermsScreen from "./screens/TermsScreen";
 import PrivacyScreen from "./screens/PrivacyScreen";
 import SetupLocationScreen from "./screens/SetupLocationScreen";
+import VerificationPendingScreen from "./screens/VerificationPendingScreen"; // 👈 IMPORT THIS
+
 import { ThemeProvider } from "./context/themeContext";
-import { SocketProvider } from "./context/socketContext";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const queryClient = new QueryClient();
 
+// ... [Keep your VendorTabs function exactly as it was] ...
 function VendorTabs() {
   const insets = useSafeAreaInsets();
-
-  // 🟢 PWA SPECIFIC FIX:
-  // On web, insets.bottom might be 0 initially. We force a minimum height
-  // and use CSS 'env()' to respect the iPhone notch area explicitly.
-  const isWeb = Platform.OS === "web";
 
   return (
     <Tab.Navigator
@@ -57,12 +54,9 @@ function VendorTabs() {
         tabBarStyle: [
           styles.tabBar,
           {
-            // Dynamic height: Base 65 + Safe Area
             height: 65 + (insets.bottom > 0 ? insets.bottom : 10),
             paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
-          },
-          // 🟢 CSS Fallback for PWA Safe Area
-          isWeb && { paddingBottom: "env(safe-area-inset-bottom)" as any },
+          }
         ],
         tabBarIcon: ({ color, focused }) => {
           let iconName: any;
@@ -89,7 +83,7 @@ function VendorTabs() {
 
 function NavigationContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
-  useOrderNotification();
+  // useOrderNotification();
 
   if (isLoading) {
     return (
@@ -106,16 +100,25 @@ function NavigationContent() {
       <StatusBar style="dark" />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
+          // 🛑 1. CHECK: Does the user have a restaurant profile?
           user?.restaurant ? (
-            <>
-              <Stack.Screen name="Main" component={VendorTabs} />
-              <Stack.Screen name="AddMenuItem" component={AddMenuItemScreen} />
-              <Stack.Screen
-                name="SetupLocation"
-                component={SetupLocationScreen}
-              />
-            </>
+             // 🛑 2. CHECK: Is the restaurant APPROVED?
+             user.isVerified === true ? (
+                // ✅ YES: Show Main App
+                <>
+                  <Stack.Screen name="Main" component={VendorTabs} />
+                  <Stack.Screen name="AddMenuItem" component={AddMenuItemScreen} />
+                  <Stack.Screen name="SetupLocation" component={SetupLocationScreen} />
+                </>
+             ) : (
+                // ❌ NO: Show Pending Screen (Gatekeeper)
+                <Stack.Screen 
+                  name="VerificationPending" 
+                  component={VerificationPendingScreen} 
+                />
+             )
           ) : (
+            // 📝 3. NO RESTAURANT YET: Show Setup Flow
             <>
               <Stack.Screen
                 name="Profile"
@@ -129,6 +132,7 @@ function NavigationContent() {
             </>
           )
         ) : (
+          // 🔒 4. NOT LOGGED IN: Show Auth Flow
           <>
             <Stack.Screen name="Splash" component={SplashScreen} />
             <Stack.Screen name="Onboarding" component={OnboardingScreen} />
@@ -137,18 +141,9 @@ function NavigationContent() {
             <Stack.Screen name="Terms" component={TermsScreen} />
             <Stack.Screen name="Privacy" component={PrivacyScreen} />
             <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
-            <Stack.Screen
-              name="ForgotPassword"
-              component={ForgotPasswordScreen}
-            />
-            <Stack.Screen
-              name="VerifyResetOtp"
-              component={VerifyResetOtpScreen}
-            />
-            <Stack.Screen
-              name="ResetPassword"
-              component={ResetPasswordScreen}
-            />
+            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+            <Stack.Screen name="VerifyResetOtp" component={VerifyResetOtpScreen} />
+            <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
           </>
         )}
       </Stack.Navigator>
@@ -160,7 +155,6 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <SocketProvider>
           <SafeAreaProvider>
             <GestureHandlerRootView>
               <ThemeProvider>
@@ -169,7 +163,6 @@ export default function App() {
               </ThemeProvider>
             </GestureHandlerRootView>
           </SafeAreaProvider>
-        </SocketProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
@@ -180,8 +173,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderTopWidth: 0,
     paddingTop: 10,
-    elevation: 10, // Android shadow
-    shadowColor: "#000", // iOS/Web shadow
+    elevation: 10,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,

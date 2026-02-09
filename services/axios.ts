@@ -10,9 +10,9 @@ if (!BASE_URL) {
 
 const api = axios.create({
   baseURL: BASE_URL,
-  headers: {
-    "Accept": "application/json",
-  },
+  // headers: {
+  //   "Accept": "application/json",
+  // },
   timeout: 60000, 
 });
 

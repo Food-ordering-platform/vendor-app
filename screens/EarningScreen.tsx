@@ -9,7 +9,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Header from '../components/HeaderTemp';
 import { useTheme } from '../context/themeContext';
 import { useAuth } from '../context/authContext';
-import { useRestaurantEarnings, useRestaurantTransactions, useRequestPayout } from '../services/restaurant/restaurant.queries';
+import { useRestaurantEarnings, useRestaurantTransactions, useRequestPayout } from '../services/vendor/vendor.queries';
 import { Transaction } from '../types/restaurant.types';
 import { createPayoutSchema } from '../utils/schema';
 import { toast } from '../components/ui/Toast'; // 👈 Import Toast

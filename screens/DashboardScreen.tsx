@@ -6,7 +6,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"; 
 import { useAuth } from "../context/authContext";
-import { useGetVendorOrders, useUpdateOrderStatus } from "../services/order/order.queries";
+import { useGetVendorOrders, useUpdateOrderStatus } from "../services/vendor/vendor.queries";
 import { Order, OrderStatus } from "../types/order.types";
 import { format } from "date-fns"; 
 import { getTimeAgo } from "@/hooks/usegetTime";
@@ -46,7 +46,7 @@ export default function DashboardScreen() {
     return orders.filter((o) => {
       if (activeTab === "PENDING") return o.status === "PENDING";
       if (activeTab === "PREPARING") return o.status === "PREPARING" || o.status === "READY_FOR_PICKUP";
-      if (activeTab === "HISTORY") return ["DELIVERED", "CANCELLED", "REFUNDED", "OUT_FOR_DELIVERY"].includes(o.status);
+      if (activeTab === "HISTORY") return ["DELIVERED", "CANCELLED", "REFUNDED", "RIDER_ACCEPTED", "OUT_FOR_DELIVERY"].includes(o.status);
       return false;
     });
   }, [orders, activeTab]);
@@ -57,7 +57,7 @@ export default function DashboardScreen() {
   }, []);
 
   const handleStatusUpdate = (orderId: string, newStatus: OrderStatus) => {
-    updateStatus({ orderId, status: newStatus });
+    updateStatus({ orderId, status: newStatus  });
   };
 
   const renderHeader = () => (

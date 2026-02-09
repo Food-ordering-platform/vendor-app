@@ -6,7 +6,7 @@ import { COLORS, SPACING } from '../constants/theme';
 import { useAuth } from '../context/authContext';
 
 export default function VerificationPendingScreen() {
-  const { logout, user } = useAuth();
+  const { logout, user, refreshUser } = useAuth();
 
   const contactSupport = () => {
     Linking.openURL('mailto:support@choweazy.com');
@@ -37,6 +37,10 @@ export default function VerificationPendingScreen() {
             You will receive an email once your restaurant is approved and live.
           </Text>
         </View>
+
+        <TouchableOpacity style={styles.btn} onPress={refreshUser}>
+        <Text style={styles.btnText}>Check Status</Text>
+      </TouchableOpacity>
 
         <TouchableOpacity style={styles.contactBtn} onPress={contactSupport}>
           <Text style={styles.contactText}>Contact Support</Text>
@@ -72,5 +76,7 @@ const styles = StyleSheet.create({
   },
   contactText: { color: 'white', fontWeight: '700' },
   logoutBtn: { padding: 10 },
-  logoutText: { color: COLORS.danger, fontWeight: '600' }
+  logoutText: { color: COLORS.danger, fontWeight: '600' },
+  btn: { backgroundColor: COLORS.primary, width: '100%', padding: 18, borderRadius: 16, alignItems: 'center', marginBottom: 16 },
+  btnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
 });

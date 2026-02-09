@@ -25,9 +25,12 @@ const ASPECT_RATIO = width / height;
 const LATITUDE_DELTA = 0.005; 
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 
-export default function SetupLocationScreen({ navigation }: any) {
+export default function SetupLocationScreen({ navigation, route }: any) {
   const mapRef = useRef<MapView>(null);
   
+  // FIX: Extract the flag passed from ProfileScreen
+  const { returnToMain } = route.params || {};
+
   // Default to Lagos
   const [region, setRegion] = useState<Region>({
     latitude: 6.5244, 
@@ -98,15 +101,28 @@ export default function SetupLocationScreen({ navigation }: any) {
 
   // 4. Confirm & Go Back
   const handleConfirm = () => {
-    navigation.navigate({
-      name: 'Profile',
-      params: { 
+    const locationParams = {
         selectedAddress: address,
         selectedLat: region.latitude,
         selectedLng: region.longitude
-      },
-      merge: true,
-    });
+    };
+
+    // 👇 FIX: Conditional Navigation based on where we came from
+    if (returnToMain) {
+        // We are in Dashboard Mode -> Profile is nested in 'Main'
+        navigation.navigate('Main', {
+            screen: 'Profile',
+            params: locationParams,
+            merge: true,
+        });
+    } else {
+        // We are in Onboarding Mode -> Profile is a top-level Stack screen
+        navigation.navigate({
+            name: 'Profile',
+            params: locationParams,
+            merge: true,
+        });
+    }
   };
 
   return (
@@ -123,7 +139,7 @@ export default function SetupLocationScreen({ navigation }: any) {
         onRegionChangeComplete={onRegionChangeComplete}
         showsUserLocation={true}
         showsMyLocationButton={false} 
-        onPanDrag={() => Keyboard.dismiss()} // Hide keyboard when moving map
+        onPanDrag={() => Keyboard.dismiss()} 
       />
 
       {/* 🔍 SEARCH BAR (Overlay) */}
@@ -140,7 +156,6 @@ export default function SetupLocationScreen({ navigation }: any) {
                     placeholder="Search street, area..."
                     fetchDetails={true}
                     onPress={(data, details = null) => {
-                        // When user selects a place
                         const point = details?.geometry?.location;
                         if (point) {
                             const newRegion = {
@@ -151,21 +166,21 @@ export default function SetupLocationScreen({ navigation }: any) {
                             };
                             setRegion(newRegion);
                             mapRef.current?.animateToRegion(newRegion, 1000);
-                            setAddress(data.description); // Instant update
+                            setAddress(data.description);
                             Keyboard.dismiss();
                         }
                     }}
                     query={{
                         key: GOOGLE_API_KEY,
                         language: 'en',
-                        components: 'country:ng', // Limit search to Nigeria
+                        components: 'country:ng',
                     }}
                     styles={{
                         textInput: styles.searchInput,
                         listView: styles.searchResultsList,
                         container: { flex: 1 },
                     }}
-                    enablePoweredByContainer={false} // Hides "Powered by Google" for cleaner look
+                    enablePoweredByContainer={false} 
                     debounce={300}
                 />
             </View>
@@ -245,11 +260,10 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: 'center', alignItems: 'center',
     ...SHADOWS.small,
-    marginTop: 2, // Align with input
+    marginTop: 2, 
   },
   searchInputContainer: {
     flex: 1,
-    // We don't limit height so the list can expand
   },
   searchInput: {
     height: 48,

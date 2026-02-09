@@ -57,6 +57,7 @@ export interface User {
   role: string;
   phone?: string;
   restaurant?: Restaurant | null; 
+  isVerified: boolean
 }
 
 

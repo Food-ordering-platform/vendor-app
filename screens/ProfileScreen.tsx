@@ -11,7 +11,7 @@ import { COLORS, SPACING, SHADOWS } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useCreateRestaurant, useUpdateRestaurant } from '../services/restaurant/restaurant.queries';
 import { CommonActions } from '@react-navigation/native';
-import { toast } from '../components/ui/Toast'; // 👈 1. Import Toast
+import { toast } from '../components/ui/Toast';
 
 export default function ProfileScreen({ navigation, route }: any) {
   const { user, logout, refreshUser } = useAuth();
@@ -39,6 +39,7 @@ export default function ProfileScreen({ navigation, route }: any) {
   const isPending = isCreating || isUpdating;
 
   useEffect(() => {
+    // Handle data returning from Map Screen
     if (route.params?.draftData) {
         const { name, phone, email, prepTime, imageUri } = route.params.draftData;
         if (name) setRestaurantName(name);
@@ -51,6 +52,7 @@ export default function ProfileScreen({ navigation, route }: any) {
         }
     }
 
+    // Handle Address selected from Map Screen
     if (route.params?.selectedAddress) {
       setAddress(route.params.selectedAddress);
       setCoordinates({
@@ -62,13 +64,16 @@ export default function ProfileScreen({ navigation, route }: any) {
 
   const goToMap = () => {
     navigation.navigate('SetupLocation', {
+        // Pass current form data so we don't lose it
         draftData: {
             name: restaurantName,
             phone,
             email,
             prepTime,
             imageUri: newImageUri || image 
-        }
+        },
+        // 👇 CRITICAL FIX: Tell the map if we should return to the Main Tab Navigator
+        returnToMain: hasRestaurant, 
     });
   };
 
@@ -94,7 +99,7 @@ export default function ProfileScreen({ navigation, route }: any) {
 
   const handleSave = () => {
     if (!restaurantName || !address || !phone || !email) {
-      toast.error("Missing Info", { description: "Please fill in all details." }); // 👈 Toast Error
+      toast.error("Missing Info", { description: "Please fill in all details." });
       return;
     }
 
@@ -113,7 +118,6 @@ export default function ProfileScreen({ navigation, route }: any) {
     const onSuccess = async () => {
        await refreshUser(); 
 
-       // 🟢 Success Toast
        const message = hasRestaurant ? "Profile Updated Successfully!" : "Restaurant Launched Successfully!";
        toast.success(message);
 
@@ -253,19 +257,19 @@ export default function ProfileScreen({ navigation, route }: any) {
           </View>
 
           <View style={[styles.section, { backgroundColor: colors.surface }]}>
-             <View style={styles.sectionHeader}>
-                <Ionicons name="settings" size={20} color={colors.primary} />
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Settings</Text>
-             </View>
-             <View style={[styles.toggleItem, { borderColor: isDark ? '#374151' : '#E5E7EB' }]}>
-                <Text style={{color: colors.text, fontWeight: '600', fontSize: 15}}>Accepting Orders</Text>
-                <Switch
+              <View style={styles.sectionHeader}>
+                 <Ionicons name="settings" size={20} color={colors.primary} />
+                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Settings</Text>
+              </View>
+              <View style={[styles.toggleItem, { borderColor: isDark ? '#374151' : '#E5E7EB' }]}>
+                 <Text style={{color: colors.text, fontWeight: '600', fontSize: 15}}>Accepting Orders</Text>
+                 <Switch
                     value={isOpen}
                     onValueChange={setIsOpen}
                     trackColor={{ false: "#D1D5DB", true: colors.success + '80' }}
                     thumbColor={isOpen ? colors.success : "#9CA3AF"}
-                />
-             </View>
+                 />
+              </View>
           </View>
 
           <TouchableOpacity
