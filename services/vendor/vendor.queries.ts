@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { VendorService } from './vendor.service.'
+import { VendorService } from './vendor.service'
 import { Order, OrdersResponse, UpdateOrderStatusPayload } from '../../types/order.types';
 import { toast } from '../../components/ui/Toast'; // 👈 Import Toast
 import { VendorEarnings } from '@/types/vendor.types';
@@ -17,10 +17,13 @@ export const useUpdateOrderStatus = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: UpdateOrderStatusPayload) => 
+    mutationFn: (payload: UpdateOrderStatusPayload) =>
       VendorService.updateOrderStatus(payload.orderId, payload.status),
     onSuccess: (_, variables) => {
+      // Refresh orders list
       queryClient.invalidateQueries({ queryKey: ['vendorOrders'] });
+      // Also refresh earnings so balances move from pending -> available
+      queryClient.invalidateQueries({ queryKey: ['vendorEarnings'] });
       const readableStatus = variables.status.replace(/_/g, " ");
       toast.success(`Order updated to ${readableStatus}`);
     },
@@ -44,7 +47,7 @@ export const useRestaurantEarnings = (restaurantId: string) => {
 // 4. Transactions Hook (NEW - Reuses earnings cache)
 export const useRestaurantTransactions = (restaurantId: string) => {
   return useQuery({
-    queryKey: ['vendorEarnings', restaurantId], 
+    queryKey: ['vendorEarnings', restaurantId],
     queryFn: () => VendorService.getEarnings(),
     select: (data) => data.transactions
   });
@@ -54,7 +57,7 @@ export const useRestaurantTransactions = (restaurantId: string) => {
 export const useRequestPayout = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { restaurantId: string; amount: number; bankDetails: any }) => 
+    mutationFn: (data: { restaurantId: string; amount: number; bankDetails: any }) =>
       VendorService.requestPayout({ amount: data.amount, bankDetails: data.bankDetails }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vendorEarnings'] });
