@@ -28,7 +28,7 @@ The official **ChowEazy Vendor App** is a powerful cross-platform application (i
 | Navigation | Expo Router (`expo-router` v6) & React Navigation |
 | Server State | TanStack React Query & Axios |
 | Mapping | React Native Maps |
-| Real-time | Socket.io Client |
+| Real-time | Polling |
 | Validation | Zod |
 
 ---
