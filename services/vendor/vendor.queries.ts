@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { VendorService } from './vendor.service'
-import { Order, OrdersResponse, UpdateOrderStatusPayload } from '../../types/order.types';
-import { toast } from '../../components/ui/Toast'; // 👈 Import Toast
+import { VendorService } from './vendor.service';
+import { OrdersResponse } from '../../types/order.types';
+import { toast } from '../../components/ui/Toast'; 
 import { VendorEarnings } from '@/types/vendor.types';
 
 export const useGetVendorOrders = (restaurantId: string) => {
@@ -13,39 +13,15 @@ export const useGetVendorOrders = (restaurantId: string) => {
   });
 };
 
-export const useUpdateOrderStatus = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (payload: UpdateOrderStatusPayload) =>
-      VendorService.updateOrderStatus(payload.orderId, payload.status),
-    onSuccess: (_, variables) => {
-      // Refresh orders list
-      queryClient.invalidateQueries({ queryKey: ['vendorOrders'] });
-      // Also refresh earnings so balances move from pending -> available
-      queryClient.invalidateQueries({ queryKey: ['vendorEarnings'] });
-      const readableStatus = variables.status.replace(/_/g, " ");
-      toast.success(`Order updated to ${readableStatus}`);
-    },
-    onError: (error: any) => {
-      // 🔴 Error Toast
-      toast.error(error.message || "Failed to update status");
-    }
-  });
-};
-
-
-// 3. Earnings Hook (NEW)
-export const useRestaurantEarnings = (restaurantId: string) => {
+export const useVendorEarnings = (restaurantId: string) => {
   return useQuery<VendorEarnings>({
     queryKey: ['vendorEarnings', restaurantId],
     queryFn: () => VendorService.getEarnings(),
-    refetchInterval: 15000, // Refresh often to see balance updates
+    refetchInterval: 15000, 
   });
 };
 
-// 4. Transactions Hook (NEW - Reuses earnings cache)
-export const useRestaurantTransactions = (restaurantId: string) => {
+export const useVendorTransactions = (restaurantId: string) => {
   return useQuery({
     queryKey: ['vendorEarnings', restaurantId],
     queryFn: () => VendorService.getEarnings(),
@@ -53,7 +29,6 @@ export const useRestaurantTransactions = (restaurantId: string) => {
   });
 };
 
-// 5. Payout Hook (NEW)
 export const useRequestPayout = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -65,6 +40,54 @@ export const useRequestPayout = () => {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Payout failed");
+    }
+  });
+};
+
+// ==========================================
+// 🚀 EXPLICIT ORDER ACTION MUTATIONS
+// ==========================================
+
+export const useAcceptOrder = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (orderId: string) => VendorService.acceptOrder(orderId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vendorOrders'] });
+      toast.success("Order accepted! You can start preparing.");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to accept order");
+    }
+  });
+};
+
+export const useRequestRider = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (orderId: string) => VendorService.requestRider(orderId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vendorOrders'] });
+      // 💸 Invalidate earnings because money moves from pending -> available!
+      queryClient.invalidateQueries({ queryKey: ['vendorEarnings'] });
+      toast.success("Food ready! Rider requested and earnings secured.");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to request rider");
+    }
+  });
+};
+
+export const useCancelOrder = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (orderId: string) => VendorService.cancelOrder(orderId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vendorOrders'] });
+      toast.success("Order cancelled successfully.");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to cancel order");
     }
   });
 };

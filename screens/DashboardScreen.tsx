@@ -6,7 +6,13 @@ import {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"; 
 import { useAuth } from "../context/authContext";
-import { useGetVendorOrders, useUpdateOrderStatus } from "../services/vendor/vendor.queries";
+// ✅ IMPORT THE NEW SPECIFIC HOOKS
+import { 
+  useGetVendorOrders, 
+  useAcceptOrder, 
+  useRequestRider, 
+  useCancelOrder 
+} from "../services/vendor/vendor.queries";
 import { Order, OrderStatus } from "../types/order.types";
 import { format } from "date-fns"; 
 import { getTimeAgo } from "@/hooks/usegetTime";
@@ -35,7 +41,11 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets(); 
 
   const { data: ordersResponse, isLoading, refetch, isRefetching } = useGetVendorOrders(restaurantId);
-  const { mutate: updateStatus, isPending: isUpdating } = useUpdateOrderStatus();
+  
+  // ✅ INITIALIZE THE NEW MUTATIONS
+  const { mutate: acceptOrder, isPending: isAccepting } = useAcceptOrder();
+  const { mutate: requestRider, isPending: isRequesting } = useRequestRider();
+  const { mutate: cancelOrder, isPending: isCanceling } = useCancelOrder();
 
   const [activeTab, setActiveTab] = useState<TabType>("PENDING");
   const [, forceUpdate] = useState(0);
@@ -55,10 +65,6 @@ export default function DashboardScreen() {
     const interval = setInterval(() => forceUpdate(v => v + 1), 60000);
     return () => clearInterval(interval);
   }, []);
-
-  const handleStatusUpdate = (orderId: string, newStatus: OrderStatus) => {
-    updateStatus({ orderId, status: newStatus  });
-  };
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
@@ -177,30 +183,34 @@ export default function DashboardScreen() {
         <View style={styles.actionFooter}>
              {item.status === "PENDING" && (
                 <>
+                    {/* ✅ CANCEL BUTTON */}
                     <TouchableOpacity 
                         style={styles.btnOutline} 
-                        onPress={() => handleStatusUpdate(item.id, "CANCELLED")}
-                        disabled={isUpdating}
+                        onPress={() => cancelOrder(item.id)}
+                        disabled={isCanceling || isAccepting}
                     >
-                        <Text style={styles.btnOutlineText}>Decline</Text>
+                        {isCanceling ? <ActivityIndicator color={COLORS.danger} /> : <Text style={styles.btnOutlineText}>Decline</Text>}
                     </TouchableOpacity>
+
+                    {/* ✅ ACCEPT BUTTON */}
                     <TouchableOpacity 
                         style={styles.btnPrimary} 
-                        onPress={() => handleStatusUpdate(item.id, "PREPARING")}
-                        disabled={isUpdating}
+                        onPress={() => acceptOrder(item.id)}
+                        disabled={isAccepting || isCanceling}
                     >
-                        {isUpdating ? <ActivityIndicator color="white" /> : <Text style={styles.btnPrimaryText}>Accept Order</Text>}
+                        {isAccepting ? <ActivityIndicator color="white" /> : <Text style={styles.btnPrimaryText}>Accept Order</Text>}
                     </TouchableOpacity>
                 </>
              )}
 
              {item.status === "PREPARING" && (
+                // ✅ REQUEST RIDER BUTTON
                 <TouchableOpacity 
                     style={[styles.btnPrimary, { width: '100%', backgroundColor: COLORS.primary }]}
-                    onPress={() => handleStatusUpdate(item.id, "READY_FOR_PICKUP")}
-                    disabled={isUpdating}
+                    onPress={() => requestRider(item.id)}
+                    disabled={isRequesting}
                 >
-                    {isUpdating ? <ActivityIndicator color="white" /> : (
+                    {isRequesting ? <ActivityIndicator color="white" /> : (
                         <>
                             <Ionicons name="bicycle" size={20} color="white" style={{marginRight: 8}} />
                             <Text style={styles.btnPrimaryText}>Food Ready - Request Rider</Text>
@@ -268,14 +278,13 @@ export default function DashboardScreen() {
         data={filteredOrders}
         renderItem={renderOrder}
         keyExtractor={(item) => item.id}
-        // 🟢 PWA FIX: Add bottom safe area so list isn't hidden by home bar
         contentContainerStyle={[styles.listContent, { paddingBottom: 100 + insets.bottom }]}
         ListEmptyComponent={!isLoading ? renderEmpty : null}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={COLORS.primary} />}
         initialNumToRender={8}
         maxToRenderPerBatch={10}
         windowSize={5}
-        removeClippedSubviews={false} // 🟢 Disable clipped subviews on Web to prevent blank spaces
+        removeClippedSubviews={false} 
         showsVerticalScrollIndicator={false}
       />
     </SafeAreaView>
@@ -298,7 +307,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'white', 
     borderRadius: 12, 
     padding: 4, 
-    // 🟢 PWA FIX: Shadow Box works on Web & iOS
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,

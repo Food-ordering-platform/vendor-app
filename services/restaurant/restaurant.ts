@@ -151,28 +151,28 @@ export const restaurantService = {
 
   // ---------------- FINANCE ---------------- //
 
-  // 7. Get Earnings
-  getEarnings: async (restaurantId: string): Promise<RestaurantEarnings> => {
-    const response = await api.get<RestaurantEarningsResponse>(`/restaurant/${restaurantId}/earnings`);
-    return response.data.data;
-  },
+  // // 7. Get Earnings
+  // getEarnings: async (restaurantId: string): Promise<RestaurantEarnings> => {
+  //   const response = await api.get<RestaurantEarningsResponse>(`/restaurant/${restaurantId}/earnings`);
+  //   return response.data.data;
+  // },
 
-  // 8. Get Transactions
-  getTransactions: async (restaurantId: string): Promise<Transaction[]> => {
-    const response = await api.get<TransactionResponse>(`/restaurant/${restaurantId}/transactions`);
-    return response.data.data;
-  },
+  // // 8. Get Transactions
+  // getTransactions: async (restaurantId: string): Promise<Transaction[]> => {
+  //   const response = await api.get<TransactionResponse>(`/restaurant/${restaurantId}/transactions`);
+  //   return response.data.data;
+  // },
 
-  // 9. Request Payout
-  requestPayout: async (
-    restaurantId: string, 
-    amount: number, 
-    bankDetails: BankDetails
-  ) => {
-    const response = await api.post(`/restaurant/${restaurantId}/payout`, {
-      amount,
-      bankDetails
-    });
-    return response.data;
-  }
+  // // 9. Request Payout
+  // requestPayout: async (
+  //   restaurantId: string, 
+  //   amount: number, 
+  //   bankDetails: BankDetails
+  // ) => {
+  //   const response = await api.post(`/restaurant/${restaurantId}/payout`, {
+  //     amount,
+  //     bankDetails
+  //   });
+  //   return response.data;
+  // }
 };

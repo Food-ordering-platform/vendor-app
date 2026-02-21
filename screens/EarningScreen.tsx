@@ -9,7 +9,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Header from '../components/HeaderTemp';
 import { useTheme } from '../context/themeContext';
 import { useAuth } from '../context/authContext';
-import { useRestaurantEarnings, useRestaurantTransactions, useRequestPayout } from '../services/vendor/vendor.queries';
+import { useVendorEarnings, useVendorTransactions, useRequestPayout } from '../services/vendor/vendor.queries';
 import { Transaction } from '../types/restaurant.types';
 import { createPayoutSchema } from '../utils/schema';
 import { toast } from '../components/ui/Toast'; // 👈 Import Toast
@@ -25,14 +25,14 @@ export default function EarningsScreen() {
     isLoading: loadingEarnings, 
     refetch: refetchEarnings,
     isRefetching: isRefetchingEarnings 
-  } = useRestaurantEarnings(restaurantId);
+  } = useVendorEarnings(restaurantId);
 
   const { 
     data: transactions, 
     isLoading: loadingTxns, 
     refetch: refetchTxns,
     isRefetching: isRefetchingTxns 
-  } = useRestaurantTransactions(restaurantId);
+  } = useVendorTransactions(restaurantId);
 
   const { mutate: payout, isPending: isPayingOut } = useRequestPayout();
 
