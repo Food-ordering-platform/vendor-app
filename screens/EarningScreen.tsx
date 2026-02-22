@@ -1,144 +1,345 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { SPACING, SHADOWS } from "../constants/theme";
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState, useCallback } from 'react';
+import { 
+  View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, 
+  TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, RefreshControl 
+} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native'; // 👈 Added for auto-refresh
+import { SPACING, SHADOWS, COLORS } from "../constants/theme";
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Header from '../components/HeaderTemp';
 import { useTheme } from '../context/themeContext';
-
-const TRANSACTIONS = [
-  { id: '1', amount: 5000, date: '2023-10-26', type: 'ORDER', desc: 'Order #1025' },
-  { id: '2', amount: 2500, date: '2023-10-26', type: 'ORDER', desc: 'Order #1024' },
-  { id: '3', amount: 12000, date: '2023-10-25', type: 'ORDER', desc: 'Order #1023' },
-  { id: '4', amount: -50000, date: '2023-10-20', type: 'WITHDRAWAL', desc: 'Bank Transfer' },
-  { id: '5', amount: 8000, date: '2023-10-15', type: 'ORDER', desc: 'Order #1010' },
-];
+import { useAuth } from '../context/authContext';
+import { useVendorEarnings, useVendorTransactions, useRequestPayout } from '../services/vendor/vendor.queries';
+import { Transaction } from '../types/restaurant.types';
+import { createPayoutSchema } from '../utils/schema';
+import { toast } from '../components/ui/Toast'; // 👈 Import Toast
 
 export default function EarningsScreen() {
   const { colors, isDark } = useTheme();
-  const [viewMode, setViewMode] = useState<'DAILY' | 'WEEKLY' | 'MONTHLY'>('WEEKLY');
+  const { restaurant } = useAuth();
+  const restaurantId = restaurant?.id || "";
 
-  const calculateTotals = () => {
-    return {
-      daily: 7500,
-      weekly: 45000,
-      monthly: 145000,
-      totalBalance: 145000
-    };
+  // DATA FETCHING
+  const { 
+    data: earnings, 
+    isLoading: loadingEarnings, 
+    refetch: refetchEarnings,
+    isRefetching: isRefetchingEarnings 
+  } = useVendorEarnings(restaurantId);
+
+  const { 
+    data: transactions, 
+    isLoading: loadingTxns, 
+    refetch: refetchTxns,
+    isRefetching: isRefetchingTxns 
+  } = useVendorTransactions(restaurantId);
+
+  const { mutate: payout, isPending: isPayingOut } = useRequestPayout();
+
+  // STATE
+  const [modalVisible, setModalVisible] = useState(false);
+  const [form, setForm] = useState({ amount: "", bankName: "", accountNumber: "", accountName: "" });
+
+  const availableBalance = earnings?.availableBalance ?? 0;
+  const pendingBalance = earnings?.pendingBalance ?? 0;
+
+  // 🟢 1. REFRESH LOGIC
+  const onRefresh = useCallback(() => {
+    refetchEarnings();
+    refetchTxns();
+  }, [refetchEarnings, refetchTxns]);
+
+  // 🟢 2. AUTO-REFRESH ON SCREEN FOCUS
+  useFocusEffect(
+    useCallback(() => {
+      onRefresh();
+    }, [onRefresh])
+  );
+
+  const handleWithdrawPress = () => {
+    if (availableBalance < 1000) {
+      // 🟢 Replaced Alert with Toast
+      toast.error(`Insufficient Balance`, {
+        description: `You need at least ₦1,000 to withdraw.`
+      });
+      return;
+    }
+    setModalVisible(true);
   };
 
-  const totals = calculateTotals();
+  const handleConfirmPayout = () => {
+    // Create Dynamic Schema based on Balance
+    const schema = createPayoutSchema(availableBalance);
 
-  const StatCard = ({ label, value, active }: any) => (
-    <TouchableOpacity 
-      style={[
-        styles.statCard, 
-        { 
-          backgroundColor: active ? colors.primary : colors.surface,
-          borderColor: active ? colors.primary : colors.border,
-          borderWidth: 1
-        }
-      ]}
-      onPress={() => setViewMode(label.toUpperCase())}
-    >
-      <Text style={[styles.statLabel, { color: active ? 'white' : colors.textLight }]}>{label}</Text>
-      <Text style={[styles.statValue, { color: active ? 'white' : colors.text }]}>₦{value.toLocaleString()}</Text>
-    </TouchableOpacity>
-  );
+    // Validate
+    const result = schema.safeParse({
+      amount: form.amount,
+      bankName: form.bankName,
+      accountNumber: form.accountNumber,
+      accountName: form.accountName
+    });
+
+    if (!result.success) {
+      // 🟢 Replaced Alert with Toast
+      toast.error(result.error.issues[0].message);
+      return;
+    }
+
+    // Proceed with Valid Data
+    payout({
+      restaurantId,
+      amount: result.data.amount,
+      bankDetails: { 
+        bankName: result.data.bankName, 
+        accountNumber: result.data.accountNumber, 
+        accountName: result.data.accountName 
+      }
+    }, {
+      onSuccess: () => {
+        setModalVisible(false);
+        setForm({ amount: "", bankName: "", accountNumber: "", accountName: "" });
+        // 🟢 Replaced Alert with Toast
+        // Note: If your hook also has a toast, you can remove this one to avoid duplicates.
+        // Keeping it here ensures UI feedback is immediate.
+        toast.success("Payout Request Submitted");
+        onRefresh();
+      },
+      onError: (err: any) => {
+        // 🟢 Replaced Alert with Toast
+        toast.error(err.response?.data?.message || "Payout failed");
+      }
+    });
+  };
+
+  const renderTransaction = ({ item }: { item: Transaction }) => {
+    const isCredit = item.type === 'CREDIT';
+    const dateString = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'N/A';
+
+    return (
+      <View style={[styles.txnRow, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <View style={[styles.iconCircle, { backgroundColor: isCredit ? '#DCFCE7' : '#FEE2E2' }]}>
+          <MaterialCommunityIcons 
+            name={isCredit ? "arrow-bottom-left" : "arrow-top-right"} 
+            size={22} 
+            color={isCredit ? '#166534' : '#991B1B'} 
+          />
+        </View>
+        
+        <View style={styles.txnContent}>
+          <Text style={[styles.txnDesc, { color: colors.text }]} numberOfLines={1}>
+            {item.description || item.type}
+          </Text>
+          <Text style={[styles.txnDate, { color: colors.textLight }]}>{dateString}</Text>
+        </View>
+
+        <Text style={[styles.txnAmount, { color: isCredit ? COLORS.success : COLORS.danger }]}>
+          {isCredit ? '+' : '-'} ₦{item.amount.toLocaleString()}
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Header title="Financials" subtitle="Overview" showNotification={false} />
+      <Header title="Wallet" subtitle="Earnings & Payouts" showNotification={false} />
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
-        
-        {/* 1. MAIN BALANCE CARD */}
-        <View style={[styles.balanceCard, { backgroundColor: colors.primary }]}>
-          <View>
-            <Text style={styles.balanceLabel}>Withdrawable Balance</Text>
-            <Text style={styles.balanceValue}>₦ {totals.totalBalance.toLocaleString()}.00</Text>
-          </View>
-          <TouchableOpacity style={[styles.withdrawBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-            <Text style={[styles.withdrawText, { color: 'white' }]}>Withdraw</Text>
-            <Ionicons name="arrow-forward" size={16} color="white" />
-          </TouchableOpacity>
-        </View>
+      <FlatList
+        contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl 
+            refreshing={isRefetchingEarnings || isRefetchingTxns} 
+            onRefresh={onRefresh} 
+            tintColor={COLORS.primary} 
+          />
+        }
+        data={transactions || []}
+        keyExtractor={(item) => item.id}
+        renderItem={renderTransaction}
+        ListHeaderComponent={
+          <>
+            <View style={styles.cardContainer}>
+              <View style={[styles.mainCard, { backgroundColor: COLORS.primary }]}>
+                {/* Available */}
+                <View style={styles.availableSection}>
+                  <View>
+                    <Text style={styles.labelAvailable}>Available Balance</Text>
+                    {loadingEarnings ? (
+                        <ActivityIndicator color="white" style={{marginTop: 5, alignSelf:'flex-start'}} />
+                    ) : (
+                        <Text style={styles.valueAvailable}>₦{availableBalance.toLocaleString()}</Text>
+                    )}
+                  </View>
+                  <View style={styles.iconContainer}>
+                     <Ionicons name="wallet" size={32} color="rgba(255,255,255,0.3)" />
+                  </View>
+                </View>
+                <View style={styles.divider} />
+                {/* Pending */}
+                <View style={styles.pendingRow}>
+                  <View style={styles.pendingInfo}>
+                    <Ionicons name="time-outline" size={16} color="#FFD700" style={{ marginRight: 6 }} />
+                    <Text style={styles.labelPending}>Pending Clearance</Text>
+                  </View>
+                  <Text style={styles.valuePending}>₦{pendingBalance.toLocaleString()}</Text>
+                </View>
+              </View>
 
-        {/* 2. STATS ROW */}
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Performance</Text>
-        
-        <View style={styles.statsRow}>
-          <StatCard label="Daily" value={totals.daily} active={viewMode === 'DAILY'} />
-          <StatCard label="Weekly" value={totals.weekly} active={viewMode === 'WEEKLY'} />
-          <StatCard label="Monthly" value={totals.monthly} active={viewMode === 'MONTHLY'} />
-        </View>
-
-        {/* 3. CHART PLACEHOLDER (FIXED) */}
-        <View style={[styles.chartPlaceholder, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={{ color: colors.textLight }}>{viewMode} Earnings Chart</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 50, gap: 8, marginTop: 10 }}>
-            {/* Fake bars */}
-            {[40, 70, 30, 90, 50, 80, 60].map((h, i) => (
-              <View 
-                key={i} 
-                style={{ 
-                  width: 8, 
-                  height: `${h}%` as any, // 👈 THE FIX: Added "as any" to satisfy TypeScript
-                  backgroundColor: colors.primary, 
-                  borderRadius: 4, 
-                  opacity: 0.7 
-                }} 
-              />
-            ))}
-          </View>
-        </View>
-
-        {/* 4. TRANSACTION HISTORY */}
-        <Text style={[styles.sectionTitle, { color: colors.text, marginTop: SPACING.l }]}>Recent Transactions</Text>
-        
-        {TRANSACTIONS.map((item) => (
-          <View key={item.id} style={[styles.transactionItem, { backgroundColor: colors.surface }]}>
-            <View style={[styles.iconBox, { 
-              backgroundColor: item.type === 'WITHDRAWAL' ? (isDark ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2') : (isDark ? 'rgba(16, 185, 129, 0.2)' : '#DCFCE7') 
-            }]}>
-              <Ionicons 
-                name={item.type === 'WITHDRAWAL' ? "arrow-up" : "arrow-down"} 
-                size={18} 
-                color={item.type === 'WITHDRAWAL' ? colors.danger : colors.success} 
-              />
+              <TouchableOpacity 
+                style={[styles.withdrawBtn, { backgroundColor: isDark ? colors.surface : '#FFF' }]} 
+                onPress={handleWithdrawPress}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.withdrawText, { color: COLORS.primary }]}>Withdraw Funds</Text>
+                <Ionicons name="arrow-forward-circle" size={24} color={COLORS.primary} />
+              </TouchableOpacity>
             </View>
-            
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.transTitle, { color: colors.text }]}>{item.desc}</Text>
-              <Text style={[styles.transDate, { color: colors.textLight }]}>{item.date}</Text>
-            </View>
-            
-            <Text style={[styles.transAmount, { color: item.type === 'WITHDRAWAL' ? colors.danger : colors.success }]}>
-              {item.amount > 0 ? '+' : ''}₦{Math.abs(item.amount).toLocaleString()}
+
+            <Text style={[styles.sectionTitle, { color: colors.text, marginLeft: SPACING.m }]}>
+              Recent Transactions
             </Text>
-          </View>
-        ))}
+          </>
+        }
+        ListEmptyComponent={
+          !loadingTxns ? (
+            <View style={styles.emptyState}>
+              <MaterialCommunityIcons name="receipt-text-outline" size={48} color={colors.textLight} />
+              <Text style={{ color: colors.textLight, marginTop: 10 }}>No transactions yet</Text>
+            </View>
+          ) : (
+            <ActivityIndicator style={{ marginTop: 20 }} color={COLORS.primary} />
+          )
+        }
+      />
 
-      </ScrollView>
+      {/* --- PAYOUT MODAL --- */}
+      <Modal 
+        animationType="slide" 
+        transparent={true} 
+        visible={modalVisible} 
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"} 
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.modalContent, { backgroundColor: isDark ? '#1F2937' : 'white' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: isDark ? 'white' : 'black' }]}>Request Withdrawal</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
+                <Ionicons name="close" size={24} color={isDark ? 'white' : '#666'} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Amount (₦)</Text>
+                <TextInput 
+                    style={[styles.input, { color: colors.text, backgroundColor: isDark ? '#374151' : '#F9FAFB' }]} 
+                    keyboardType="numeric" 
+                    placeholder={`Max: ${availableBalance}`} 
+                    placeholderTextColor={colors.textLight}
+                    value={form.amount} 
+                    onChangeText={(t) => setForm({ ...form, amount: t })} 
+                />
+            </View>
+
+            <View style={styles.rowInputs}>
+                 <View style={{ flex: 1, marginRight: 10 }}>
+                    <Text style={[styles.label, { color: colors.text }]}>Bank Name</Text>
+                    <TextInput 
+                        style={[styles.input, { color: colors.text, backgroundColor: isDark ? '#374151' : '#F9FAFB' }]} 
+                        placeholder="GTBank" 
+                        placeholderTextColor={colors.textLight}
+                        value={form.bankName} 
+                        onChangeText={(t) => setForm({ ...form, bankName: t })} 
+                    />
+                 </View>
+                 <View style={{ flex: 1 }}>
+                    <Text style={[styles.label, { color: colors.text }]}>Account No.</Text>
+                    <TextInput 
+                        style={[styles.input, { color: colors.text, backgroundColor: isDark ? '#374151' : '#F9FAFB' }]} 
+                        keyboardType="numeric" 
+                        placeholder="012..." 
+                        placeholderTextColor={colors.textLight}
+                        value={form.accountNumber} 
+                        onChangeText={(t) => setForm({ ...form, accountNumber: t })} 
+                        maxLength={10}
+                    />
+                 </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Account Name</Text>
+                <TextInput 
+                    style={[styles.input, { color: colors.text, backgroundColor: isDark ? '#374151' : '#F9FAFB' }]} 
+                    placeholder="Matches Bank Record" 
+                    placeholderTextColor={colors.textLight}
+                    value={form.accountName} 
+                    onChangeText={(t) => setForm({ ...form, accountName: t })} 
+                />
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.confirmBtn, { backgroundColor: COLORS.primary, opacity: isPayingOut ? 0.7 : 1 }]} 
+              onPress={handleConfirmPayout} 
+              disabled={isPayingOut}
+            >
+              {isPayingOut ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.confirmBtnText}>Confirm Withdrawal</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  balanceCard: { margin: SPACING.m, padding: SPACING.l, borderRadius: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', ...SHADOWS.medium },
-  balanceLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginBottom: 4 },
-  balanceValue: { color: '#FFF', fontSize: 28, fontWeight: 'bold' },
-  withdrawBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 25, flexDirection: 'row', alignItems: 'center' },
-  withdrawText: { fontWeight: 'bold', marginRight: 4, fontSize: 12 },
-  sectionTitle: { marginLeft: SPACING.m, marginTop: SPACING.m, fontSize: 16, fontWeight: '700' },
-  statsRow: { flexDirection: 'row', paddingHorizontal: SPACING.m, gap: 10, marginTop: 10 },
-  statCard: { flex: 1, padding: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  statLabel: { fontSize: 12, fontWeight: '600', marginBottom: 4 },
-  statValue: { fontSize: 16, fontWeight: 'bold' },
-  chartPlaceholder: { margin: SPACING.m, padding: SPACING.m, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  transactionItem: { flexDirection: 'row', alignItems: 'center', padding: SPACING.m, marginHorizontal: SPACING.m, marginBottom: SPACING.s, borderRadius: 12, ...SHADOWS.small },
-  iconBox: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginRight: SPACING.m },
-  transTitle: { fontWeight: '600', fontSize: 14 },
-  transDate: { fontSize: 12, marginTop: 2 },
-  transAmount: { fontWeight: 'bold', fontSize: 16 }
+  cardContainer: { margin: SPACING.m, marginBottom: SPACING.l },
+  mainCard: { 
+    borderRadius: 24, 
+    padding: SPACING.l, 
+    ...SHADOWS.medium,
+    marginBottom: SPACING.m,
+  },
+  availableSection: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  labelAvailable: { color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  valueAvailable: { color: '#FFF', fontSize: 34, fontWeight: '800', marginTop: 4 },
+  iconContainer: { width: 48, height: 48, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginVertical: 16 },
+  pendingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  pendingInfo: { flexDirection: 'row', alignItems: 'center' },
+  labelPending: { color: '#FFD700', fontSize: 14, fontWeight: '600' },
+  valuePending: { color: '#FFF', fontSize: 18, fontWeight: '700' },
+  withdrawBtn: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    padding: 16, 
+    borderRadius: 16, 
+    ...SHADOWS.small 
+  },
+  withdrawText: { fontSize: 16, fontWeight: 'bold' },
+  sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 10 },
+  txnRow: { flexDirection: 'row', alignItems: 'center', padding: SPACING.m, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+  iconCircle: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  txnContent: { flex: 1 },
+  txnDesc: { fontWeight: '600', fontSize: 15, marginBottom: 2 },
+  txnDate: { fontSize: 12 },
+  txnAmount: { fontWeight: '700', fontSize: 15 },
+  emptyState: { alignItems: 'center', justifyContent: 'center', padding: 40 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold' },
+  closeBtn: { padding: 4 },
+  inputGroup: { marginBottom: 16 },
+  rowInputs: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+  label: { fontSize: 13, fontWeight: '600', marginBottom: 6, opacity: 0.8 },
+  input: { borderRadius: 12, paddingHorizontal: 16, height: 50, fontSize: 16, borderWidth: 1, borderColor: 'transparent' },
+  confirmBtn: { height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 12, ...SHADOWS.medium },
+  confirmBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
 });

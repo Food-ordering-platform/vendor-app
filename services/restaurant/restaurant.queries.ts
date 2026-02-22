@@ -1,21 +1,26 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { restaurantService } from './restaurant';
-import { Alert } from 'react-native';
-import { CreateRestaurantPayload, UpdateRestaurantPayload } from "../../types/restaurant.types";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { restaurantService } from "./restaurant";
+import {
+  CreateRestaurantPayload,
+  RestaurantEarningsResponse,
+  UpdateRestaurantPayload,
+} from "../../types/restaurant.types";
+import { toast } from "../../components/ui/Toast"; // 👈 Import Toast
 
 export const useCreateRestaurant = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreateRestaurantPayload) => restaurantService.createRestaurant(data),
+    mutationFn: (data: CreateRestaurantPayload) =>
+      restaurantService.createRestaurant(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      toast.success("Restaurant created successfully!");
     },
     onError: (error: any) => {
-      console.log("Create Mutation Failed:", error); // [LOG]
-      const msg = error.message || "Failed to create restaurant";
-      Alert.alert("Error", msg);
-    }
+      console.log("Create Mutation Failed:", error);
+      toast.error(error.message || "Failed to create restaurant");
+    },
   });
 };
 
@@ -23,55 +28,49 @@ export const useUpdateRestaurant = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: UpdateRestaurantPayload) => restaurantService.updateRestaurant(payload),
+    mutationFn: (payload: UpdateRestaurantPayload) =>
+      restaurantService.updateRestaurant(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      toast.success("Restaurant profile updated");
     },
     onError: (error: any) => {
-      console.log("Update Mutation Failed:", error); // [LOG]
-      
-      // [FIX] Read from error.message directly (from our axios interceptor)
       const msg = error.message || "Failed to update profile";
-      
-      // Optional: Show status specific hints
       if (error.status === 403) {
-         Alert.alert("Permission Denied", "You do not have permission to edit this restaurant.");
+        toast.error("Permission Denied: You cannot edit this restaurant.");
       } else {
-         Alert.alert("Error", msg);
+        toast.error(msg);
       }
-    }
+    },
   });
 };
 
 // ================= NEW HOOKS =================
 
-// 1. Hook to Fetch Menu Items
 export const useGetMenuItems = (restaurantId: string) => {
   return useQuery({
-    queryKey: ['menuItems', restaurantId], // Unique key per restaurant
+    queryKey: ["menuItems", restaurantId],
     queryFn: () => restaurantService.getMenuItems(restaurantId),
-    enabled: !!restaurantId, // Only run query if we have an ID
+    enabled: !!restaurantId,
   });
 };
 
-// 2. Hook to Add Menu Item
 export const useAddMenuItem = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    // We expect an object containing both the ID and the data
-    mutationFn: ({ restaurantId, data }: { restaurantId: string; data: any }) => 
+    mutationFn: ({ restaurantId, data }: { restaurantId: string; data: any }) =>
       restaurantService.addMenuItem(restaurantId, data),
-      
+
     onSuccess: (_, variables) => {
-      // ✅ This is the magic part: It forces the 'MenuScreen' to re-fetch the list immediately
-      queryClient.invalidateQueries({ queryKey: ['menuItems', variables.restaurantId] });
-      // We can handle navigation in the component, or show success here
+      queryClient.invalidateQueries({
+        queryKey: ["menuItems", variables.restaurantId],
+      });
+      toast.success("Menu item added successfully");
     },
     onError: (error: any) => {
-      const msg = error.message || "Failed to add menu item";
-      Alert.alert("Error", msg);
-    }
+      toast.error(error.message || "Failed to add menu item");
+    },
   });
 };
 
@@ -79,14 +78,15 @@ export const useToggleMenuItem = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (itemId: string) => restaurantService.toggleAvailability(itemId),
-    onSuccess: (_, itemId) => {
-      // Invalidate queries to refresh the list automatically
-      queryClient.invalidateQueries({ queryKey: ['menuItems'] });
+    mutationFn: (itemId: string) =>
+      restaurantService.toggleAvailability(itemId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["menuItems"] });
+      toast.success("Item availability updated");
     },
     onError: (error: any) => {
-      Alert.alert("Error", error.message || "Failed to update status");
-    }
+      toast.error(error.message || "Failed to update status");
+    },
   });
 };
 
@@ -96,11 +96,46 @@ export const useDeleteMenuItem = () => {
   return useMutation({
     mutationFn: (itemId: string) => restaurantService.deleteMenuItem(itemId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems'] });
-      Alert.alert("Success", "Item deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["menuItems"] });
+      toast.success("Item deleted");
     },
     onError: (error: any) => {
-      Alert.alert("Error", error.message || "Failed to delete item");
+      toast.error(error.message || "Failed to delete item");
+    },
+  });
+};
+
+// Fetch Balance
+export const useRestaurantEarnings = (restaurantId: string) => {
+  return useQuery({
+    queryKey: ["restaurant-earnings", restaurantId],
+    queryFn: () => restaurantService.getEarnings(restaurantId),
+    enabled: !!restaurantId,
+  });
+};
+
+// Fetch Transactions
+export const useRestaurantTransactions = (restaurantId: string) => {
+  return useQuery({
+    queryKey: ["restaurant-transactions", restaurantId],
+    queryFn: () => restaurantService.getTransactions(restaurantId),
+    enabled: !!restaurantId,
+  });
+};
+
+// Request Payout
+export const useRequestPayout = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { restaurantId: string; amount: number; bankDetails: any }) => 
+      restaurantService.requestPayout(data.restaurantId, data.amount, data.bankDetails),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["restaurant-earnings", variables.restaurantId] });
+      queryClient.invalidateQueries({ queryKey: ["restaurant-transactions", variables.restaurantId] });
+      toast.success("Payout request submitted");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Payout request failed");
     }
   });
 };

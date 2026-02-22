@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
-  ScrollView, ActivityIndicator,  Image, Switch 
+  ScrollView, ActivityIndicator, Alert, Image, Switch, 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker'; 
@@ -10,8 +10,7 @@ import { useTheme } from '../context/themeContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useCreateRestaurant, useUpdateRestaurant } from '../services/restaurant/restaurant.queries';
-import { CommonActions } from '@react-navigation/native';
-import { toast } from '../components/ui/Toast';
+import { CommonActions } from '@react-navigation/native'; // 👈 Import CommonActions
 
 export default function ProfileScreen({ navigation, route }: any) {
   const { user, logout, refreshUser } = useAuth();
@@ -39,7 +38,6 @@ export default function ProfileScreen({ navigation, route }: any) {
   const isPending = isCreating || isUpdating;
 
   useEffect(() => {
-    // Handle data returning from Map Screen
     if (route.params?.draftData) {
         const { name, phone, email, prepTime, imageUri } = route.params.draftData;
         if (name) setRestaurantName(name);
@@ -52,7 +50,6 @@ export default function ProfileScreen({ navigation, route }: any) {
         }
     }
 
-    // Handle Address selected from Map Screen
     if (route.params?.selectedAddress) {
       setAddress(route.params.selectedAddress);
       setCoordinates({
@@ -64,23 +61,20 @@ export default function ProfileScreen({ navigation, route }: any) {
 
   const goToMap = () => {
     navigation.navigate('SetupLocation', {
-        // Pass current form data so we don't lose it
         draftData: {
             name: restaurantName,
             phone,
             email,
             prepTime,
             imageUri: newImageUri || image 
-        },
-        // 👇 CRITICAL FIX: Tell the map if we should return to the Main Tab Navigator
-        returnToMain: hasRestaurant, 
+        }
     });
   };
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      toast.error('Permission Denied', { description: 'We need access to your gallery.' });
+      Alert.alert('Permission Denied', 'We need access to your gallery.');
       return;
     }
 
@@ -99,7 +93,7 @@ export default function ProfileScreen({ navigation, route }: any) {
 
   const handleSave = () => {
     if (!restaurantName || !address || !phone || !email) {
-      toast.error("Missing Info", { description: "Please fill in all details." });
+      Alert.alert("Missing Info", "Please fill in all details.");
       return;
     }
 
@@ -118,22 +112,23 @@ export default function ProfileScreen({ navigation, route }: any) {
     const onSuccess = async () => {
        await refreshUser(); 
 
-       const message = hasRestaurant ? "Profile Updated Successfully!" : "Restaurant Launched Successfully!";
-       toast.success(message);
-
        if (!hasRestaurant) {
+           // 🟢 CRITICAL FIX: FORCE NAVIGATION TO DASHBOARD
+           // We reset the history so the user CANNOT go back to Setup
            navigation.dispatch(
             CommonActions.reset({
               index: 0,
               routes: [{ name: 'Main', params: { screen: 'Orders' } }],
             })
           );
+       } else {
+           Alert.alert("Success", "Profile Updated!");
        }
     };
 
     if (hasRestaurant) {
       if (!user?.restaurant?.id) {
-        toast.error("Error", { description: "Restaurant ID not found. Please restart app." });
+        Alert.alert("Error", "Restaurant ID not found. Please restart the app.");
         return;
       }
       updateRestaurant({ id: user.restaurant.id, data: payload }, { onSuccess });
@@ -257,19 +252,19 @@ export default function ProfileScreen({ navigation, route }: any) {
           </View>
 
           <View style={[styles.section, { backgroundColor: colors.surface }]}>
-              <View style={styles.sectionHeader}>
-                 <Ionicons name="settings" size={20} color={colors.primary} />
-                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Settings</Text>
-              </View>
-              <View style={[styles.toggleItem, { borderColor: isDark ? '#374151' : '#E5E7EB' }]}>
-                 <Text style={{color: colors.text, fontWeight: '600', fontSize: 15}}>Accepting Orders</Text>
-                 <Switch
+             <View style={styles.sectionHeader}>
+                <Ionicons name="settings" size={20} color={colors.primary} />
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Settings</Text>
+             </View>
+             <View style={[styles.toggleItem, { borderColor: isDark ? '#374151' : '#E5E7EB' }]}>
+                <Text style={{color: colors.text, fontWeight: '600', fontSize: 15}}>Accepting Orders</Text>
+                <Switch
                     value={isOpen}
                     onValueChange={setIsOpen}
                     trackColor={{ false: "#D1D5DB", true: colors.success + '80' }}
                     thumbColor={isOpen ? colors.success : "#9CA3AF"}
-                 />
-              </View>
+                />
+             </View>
           </View>
 
           <TouchableOpacity

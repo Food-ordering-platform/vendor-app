@@ -1,67 +1,100 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import * as SecureStore from 'expo-secure-store';
-import { AuthResponse } from '../types/auth.types'; // Import from shared types
+import React, { createContext, useContext, ReactNode } from 'react';
+import * as SecureStore from 'expo-secure-store'; 
+import { Platform } from 'react-native'; // 👈 Import Platform
+import { useQueryClient } from '@tanstack/react-query';
+import { LoginData, RegisterData, User, AuthResponse } from '../types/auth.types';
+import { useCurrentUser, useLogin, useRegister } from '../services/auth/auth.queries';
 
 interface AuthContextType {
-  // ✅ Frontend Style: Infer type from the response instead of manual interface
-  user: AuthResponse['user'] | null;
-  token: string | null;
-  isLoading: boolean;
-  setAuth: (user: AuthResponse['user'], token: string) => Promise<void>;
-  logout: () => Promise<void>;
+  user: User | null;
+  restaurant: any | null; 
   isAuthenticated: boolean;
+  isLoading: boolean;
+  login: (data: LoginData) => Promise<AuthResponse>;
+  register: (data: RegisterData) => Promise<AuthResponse>;
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType>({} as any);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<AuthResponse['user'] | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+// 👇 HELPER FUNCTIONS FOR STORAGE
+const saveToken = async (token: string) => {
+  if (Platform.OS === 'web') {
+    localStorage.setItem('auth_token', token);
+  } else {
+    await SecureStore.setItemAsync('auth_token', token);
+  }
+};
 
-  // Restore session on app start
-  useEffect(() => {
-    const restoreSession = async () => {
-      try {
-        const storedUser = await SecureStore.getItemAsync('user_data');
-        const storedToken = await SecureStore.getItemAsync('auth_token');
-        
-        if (storedToken && storedUser) {
-          setUser(JSON.parse(storedUser));
-          setToken(storedToken);
-        }
-      } catch (e) {
-        console.log('Failed to restore session');
-      } finally {
-        setIsLoading(false);
+const deleteToken = async () => {
+  if (Platform.OS === 'web') {
+    localStorage.removeItem('auth_token');
+  } else {
+    await SecureStore.deleteItemAsync('auth_token');
+  }
+};
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const queryClient = useQueryClient();
+
+  const { data: user, isLoading: isUserLoading, refetch } = useCurrentUser();
+  const loginMutation = useLogin();
+  const registerMutation = useRegister();
+
+  const refreshUser = async () => {
+    await refetch();
+  };
+
+  const login = async (data: LoginData): Promise<AuthResponse> => {
+    try {
+      const res = await loginMutation.mutateAsync(data);
+      
+      if (res.requireOtp) {
+        return res; 
       }
-    };
-    restoreSession();
-  }, []);
 
-  const setAuth = async (newUser: AuthResponse['user'], newToken: string) => {
-    await SecureStore.setItemAsync('auth_token', newToken);
-    await SecureStore.setItemAsync('user_data', JSON.stringify(newUser));
-    setUser(newUser);
-    setToken(newToken);
+      if (res.token) {
+        // 👇 USE HELPER FUNCTION (Safe for Web)
+        await saveToken(res.token);
+        
+        await refetch(); 
+      }
+      return res;
+    } catch (error: any) {
+      throw error;
+    }
+  };
+
+  const register = async (data: RegisterData): Promise<AuthResponse> => {
+    try {
+      return await registerMutation.mutateAsync(data);
+    } catch (error: any) {
+      throw error;
+    }
   };
 
   const logout = async () => {
-    await SecureStore.deleteItemAsync('auth_token');
-    await SecureStore.deleteItemAsync('user_data');
-    setUser(null);
-    setToken(null);
+    // 👇 USE HELPER FUNCTION
+    await deleteToken();
+    queryClient.setQueryData(['currentUser'], null);
+    queryClient.removeQueries({ queryKey: ['currentUser'] });
   };
+
+  const isAuthenticated = !!user; 
+  const restaurant = user?.restaurant || null;
 
   return (
     <AuthContext.Provider 
       value={{ 
-        user, 
-        token, 
-        isLoading, 
-        setAuth, 
+        user: user || null, 
+        restaurant,
+        isAuthenticated, 
+        isLoading: isUserLoading, 
+        login, 
+        register, 
         logout,
-        isAuthenticated: !!user 
+        refreshUser
       }}
     >
       {children}
@@ -69,4 +102,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
+  return context;
+};

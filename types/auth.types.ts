@@ -1,69 +1,72 @@
 
 //-----------DATA OR REQUEST SENT TO THE BACKEND (REQUEST PAYLOADS)-----------//
 
+import { Restaurant } from "./restaurant.types";
+
 export interface RegisterData {
   name: string;
   email: string;
   password: string;
   phone: string; // Phone is usually mandatory for vendors
   role: "VENDOR"; // Strict typing for this app
+  terms: boolean
+  restaurantName: string;
 }
 
 export interface LoginData {
   email: string;
   password: string;
+  clientType?: "web" | "mobile"; // <--- ADDED 
 }
 
 export interface VerifyOtpPayload {
-  token: string; // The temp token received after login/signup
+  email: string;
   code: string;
+  clientType?: "web" | "mobile"; // <--- ADDED
 }
-
 export interface ForgotPasswordPayload {
   email: string;
 }
 
 export interface VerifyResetOtpPayload {
-  token: string;
+  email: string;
   code: string;
 }
 
+export interface WebPushSubscriptionPayload {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+}
 
 //-----------DATA RECEIVED FROM THE BACKEND (RESPONSE TYPES)-----------//
 
+
 export interface AuthResponse {
+  user: User;
   token: string;
   requireOtp?: boolean;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    phone: string;
-    role: "VENDOR";
-    restaurant?: {
-      id: string;
-      name: string;
-      address: string;
-      phone: string;
-      email: string;
-      prepTime: number;
-      minimumOrder: number;
-      isOpen: boolean;
-      imageUrl?: string;
-      ownerId: string;
-    } | null;
-  };
-  };
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  phone?: string;
+  restaurant?: Restaurant | null; 
+  isVerified: boolean
+}
 
 
 export interface VerifyOtpResponse {
+  success:boolean
   message: string;
-  user: {
-    id: string;
-    email: string;
-    role: "VENDOR";
-  };
-  token: string; // Final auth token
+  data: {
+    isVerified: boolean
+  } 
 }
 
 

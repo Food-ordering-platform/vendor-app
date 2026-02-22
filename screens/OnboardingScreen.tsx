@@ -1,129 +1,235 @@
-import React, { useState, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
-  View, Text, StyleSheet, FlatList, Animated, TouchableOpacity, 
-  Dimensions, SafeAreaView, Platform 
+  View, 
+  Text, 
+  FlatList, 
+  StyleSheet, 
+  useWindowDimensions, 
+  TouchableOpacity, 
+  SafeAreaView
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../context/themeContext'; 
-import { SPACING } from '../constants/theme';
-
-const { width } = Dimensions.get('window');
+import { COLORS, SHADOWS, } from '../constants/theme';
+import { StatusBar } from 'expo-status-bar';
 
 const SLIDES = [
-  { id: '1', title: 'Manage Your Menu', description: 'Easily add new dishes, update prices, and control availability instantly.', icon: 'restaurant' },
-  { id: '2', title: 'Live Order', description: 'Receive real-time order alerts. Accept, cook, and dispatch riders with one tap.', icon: 'notifications' },
-  { id: '3', title: 'Track Your Growth', description: 'Monitor your daily earnings and withdraw your funds whenever you need.', icon: 'wallet' },
+  {
+    id: '1',
+    icon: 'megaphone', 
+    title: 'Expand Your Reach',
+    subtitle: 'Connect with thousands of hungry customers in your area instantly.',
+  },
+  {
+    id: '2',
+    icon: 'receipt',
+    title: 'Manage Orders',
+    subtitle: 'Track, process, and deliver orders efficiently with our tools.',
+  },
+  {
+    id: '3',
+    icon: 'wallet',
+    title: 'Boost Earnings',
+    subtitle: 'Grow your business with insights and fast payouts.',
+  },
 ];
 
 export default function OnboardingScreen({ navigation }: any) {
-  const { colors, isDark } = useTheme();
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollX = useRef(new Animated.Value(0)).current;
-  const slidesRef = useRef<FlatList>(null);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const flatListRef = useRef<FlatList>(null);
+  const { width, height } = useWindowDimensions();
 
-  const viewableItemsChanged = useRef(({ viewableItems }: any) => {
-    if (viewableItems && viewableItems.length > 0) {
-      setCurrentIndex(viewableItems[0].index);
-    }
-  }).current;
+  const skip = () => {
+    navigation.replace('Login');
+  };
 
-  const handleNext = () => {
-    if (currentIndex < SLIDES.length - 1) {
-      slidesRef.current?.scrollToIndex({ index: currentIndex + 1 });
+  const goToNextSlide = () => {
+    const nextSlideIndex = currentSlideIndex + 1;
+    if (nextSlideIndex < SLIDES.length) {
+      const offset = nextSlideIndex * width;
+      flatListRef?.current?.scrollToOffset({ offset });
+      setCurrentSlideIndex(nextSlideIndex);
     } else {
       navigation.replace('Login');
     }
   };
 
-  const Paginator = ({ data, scrollX }: any) => {
-    return (
-      <View style={{ flexDirection: 'row', height: 64 }}>
-        {data.map((_: any, i: number) => {
-          const inputRange = [(i - 1) * width, i * width, (i + 1) * width];
-          const dotWidth = scrollX.interpolate({
-            inputRange, outputRange: [10, 20, 10], extrapolate: 'clamp',
-          });
-          const opacity = scrollX.interpolate({
-            inputRange, outputRange: [0.3, 1, 0.3], extrapolate: 'clamp',
-          });
-          return <Animated.View style={[styles.dot, { width: dotWidth, opacity, backgroundColor: colors.primary }]} key={i.toString()} />;
-        })}
+  // 🟢 FIXED: Detect active slide immediately when 50% visible
+  // This makes the swipe feel responsive because it updates BEFORE the scroll stops
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (viewableItems && viewableItems.length > 0) {
+      setCurrentSlideIndex(viewableItems[0].index);
+    }
+  }).current;
+
+  const viewabilityConfig = useRef({
+    viewAreaCoveragePercentThreshold: 50,
+  }).current;
+
+  const renderItem = ({ item }: { item: typeof SLIDES[0] }) => (
+    <View style={[styles.slide, { width }]}>
+      <View style={styles.iconCircle}>
+        <Ionicons name={item.icon as any} size={80} color={COLORS.primary} />
       </View>
-    );
-  };
+      
+      <View style={styles.textContainer}>
+        <Text style={styles.title}>{item.title}</Text>
+        <Text style={styles.subtitle}>{item.subtitle}</Text>
+      </View>
+    </View>
+  );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar style={isDark ? "light" : "dark"} />
+    <SafeAreaView style={[styles.container, { backgroundColor: '#FDF8F9' }]}>
+      <StatusBar style="dark" />
       
-      <View style={{ height: 20 }} />
+      <FlatList
+        ref={flatListRef}
+        // 🟢 UPDATED: Replaced onMomentumScrollEnd with onViewableItemsChanged
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        scrollEventThrottle={32}
+        
+        // 🟢 ADDED: getItemLayout ensures smoother snapping
+        getItemLayout={(data, index) => ({
+          length: width,
+          offset: width * index,
+          index,
+        })}
 
-      <View style={{ flex: 3 }}>
-        <FlatList
-          data={SLIDES}
-          renderItem={({ item }) => (
-            <View style={styles.slide}>
-              <View style={styles.iconContainer}>
-                {/* [FIX] Reduced circle size (0.6 instead of 0.75) */}
-                <View style={[styles.circleBackground, { backgroundColor: isDark ? '#374151' : '#FFE4E6' }]}>
-                  {/* [FIX] Reduced icon size */}
-                  <Ionicons name={item.icon as any} size={80} color={colors.primary} />
-                </View>
-              </View>
+        contentContainerStyle={{ alignItems: 'center', paddingTop: height * 0.1 }}
+        showsHorizontalScrollIndicator={false}
+        horizontal
+        data={SLIDES}
+        pagingEnabled
+        bounces={false} // Prevents overscrolling on iOS
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+      />
+
+      <View style={[styles.footer, { height: height * 0.25 }]}>
+        {/* Indicators */}
+        <View style={styles.indicatorContainer}>
+          {SLIDES.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.indicator,
+                currentSlideIndex === index && styles.indicatorActive,
+              ]}
+            />
+          ))}
+        </View>
+
+        {/* Buttons */}
+        <View style={styles.btnContainer}>
+          {currentSlideIndex === SLIDES.length - 1 ? (
+            <TouchableOpacity 
+              activeOpacity={0.8}
+              style={styles.primaryBtn} 
+              onPress={skip}
+            >
+              <Text style={styles.primaryBtnText}>GET STARTED</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <TouchableOpacity 
+                activeOpacity={0.6} 
+                style={styles.skipBtn} 
+                onPress={skip}
+              >
+                <Text style={styles.skipBtnText}>Skip</Text>
+              </TouchableOpacity>
               
-              <View style={styles.textContainer}>
-                <Text style={[styles.title, { color: colors.primary }]}>{item.title}</Text>
-                <Text style={[styles.description, { color: colors.textLight }]}>{item.description}</Text>
-              </View>
+              <TouchableOpacity 
+                activeOpacity={0.8} 
+                onPress={goToNextSlide} 
+                style={styles.nextBtn}
+              >
+                <Text style={styles.nextBtnText}>Next</Text>
+                <Ionicons name="arrow-forward" size={20} color="white" />
+              </TouchableOpacity>
             </View>
           )}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          pagingEnabled
-          bounces={false}
-          keyExtractor={(item) => item.id}
-          onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: false })}
-          onViewableItemsChanged={viewableItemsChanged}
-          viewConfig={{ viewAreaCoveragePercentThreshold: 50 }}
-          ref={slidesRef}
-        />
-      </View>
-
-      <View style={styles.footer}>
-        <Paginator data={SLIDES} scrollX={scrollX} />
-        <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary }]} onPress={handleNext}>
-          <Text style={styles.buttonText}>{currentIndex === SLIDES.length - 1 ? 'Get Started' : 'Next'}</Text>
-          {currentIndex !== SLIDES.length - 1 && <Ionicons name="arrow-forward" size={20} color="white" style={{ marginLeft: 8 }} />}
-        </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: Platform.OS === 'android' ? 30 : 0 },
-  slide: { width: width, alignItems: 'center', paddingHorizontal: SPACING.l },
-  iconContainer: { 
-    flex: 0.6, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    width: '100%', 
-    paddingTop: 20 
-  },
-  // [FIX] Adjusted dimensions
-  circleBackground: {
-    width: width * 0.6, 
-    height: width * 0.6,
-    borderRadius: (width * 0.6) / 2,
+  container: { flex: 1 },
+  slide: { alignItems: 'center', justifyContent: 'flex-start' },
+  
+  iconCircle: {
+    height: 180,
+    width: 180,
+    borderRadius: 90,
+    backgroundColor: '#FFEBF0', 
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 40,
+    ...SHADOWS.medium, 
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.1,
   },
-  textContainer: { flex: 0.4, alignItems: 'center', justifyContent: 'flex-start', paddingTop: SPACING.s },
-  title: { fontSize: 26, fontWeight: '800', marginBottom: SPACING.s, textAlign: 'center' },
-  description: { fontSize: 15, textAlign: 'center', lineHeight: 22, paddingHorizontal: SPACING.m },
-  footer: { flex: 1, justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.l, paddingBottom: SPACING.xl },
-  dot: { height: 10, borderRadius: 5, marginHorizontal: 8 },
-  button: { flexDirection: 'row', paddingVertical: 16, paddingHorizontal: 32, borderRadius: 30, alignItems: 'center', justifyContent: 'center', width: '80%', elevation: 5 },
-  buttonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  
+  textContainer: { paddingHorizontal: 40, alignItems: 'center' },
+  
+  title: { 
+    color: '#2D1B21', 
+    fontSize: 32, 
+    fontWeight: '800', 
+    textAlign: 'center', 
+    marginBottom: 16,
+    letterSpacing: -0.5
+  },
+  subtitle: { 
+    color: '#6B7280', 
+    fontSize: 16, 
+    textAlign: 'center', 
+    lineHeight: 24,
+    fontWeight: '500'
+  },
+  
+  footer: { justifyContent: 'space-between', paddingHorizontal: 24, paddingBottom: 40 },
+  
+  indicatorContainer: { flexDirection: 'row', justifyContent: 'center', marginBottom: 20 },
+  indicator: { height: 6, width: 6, backgroundColor: '#E5E7EB', marginHorizontal: 4, borderRadius: 3 },
+  indicatorActive: { backgroundColor: COLORS.primary, width: 24, height: 6, borderRadius: 3 },
+  
+  btnContainer: { marginBottom: 10 },
+  
+  primaryBtn: {
+    height: 56,
+    borderRadius: 30, 
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...SHADOWS.medium,
+    shadowColor: COLORS.primary, 
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  primaryBtnText: { fontWeight: 'bold', fontSize: 16, color: '#fff', letterSpacing: 1 },
+  
+  skipBtn: {
+    height: 56,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  skipBtnText: { color: COLORS.textLight, fontSize: 16, fontWeight: '600' },
+  
+  nextBtn: {
+    height: 56,
+    width: 140,
+    flexDirection: 'row',
+    gap: 8,
+    borderRadius: 28,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...SHADOWS.small,
+  },
+  nextBtnText: { fontWeight: 'bold', fontSize: 16, color: '#fff' },
 });

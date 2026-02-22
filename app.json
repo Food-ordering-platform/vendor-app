@@ -1,35 +1,54 @@
 {
   "expo": {
-    "name": "vendor-app",
-    "slug": "vendor-app",
+    "name": "ChowEazy Vendor",
+    "slug": "choweazy-vendor",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/vendor_logo.png",
+    "userInterfaceStyle": "light",
     "scheme": "vendorapp",
-    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.choweazy.vendor",
+      "userInterfaceStyle": "light"
     },
     "android": {
+      "package": "com.choweazy.vendor",
+      "googleServicesFile": "./google-services.json",
+      "userInterfaceStyle": "light",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/vendor_logo.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/vendor_logo.png",
+      "name": "ChowEazy Vendor",
+      "shortName": "ChowEazy",
+      "lang": "en",
+      "themeColor": "#7B1E3A", 
+      "backgroundColor": "#ffffff",
+      "display": "standalone",
+      "startUrl": "/",
+      "dir": "auto",
+      "orientation": "portrait",
+      "meta": {
+        "apple": {
+          "mobileWebAppCapable": "yes",
+          "mobileWebAppStatusBarStyle": "black-translucent"
+        }
+      }
     },
     "plugins": [
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/vendor_logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",

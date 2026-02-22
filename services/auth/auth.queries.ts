@@ -1,8 +1,5 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { authService } from './auth';
-import * as SecureStore from 'expo-secure-store';
-import { useAuth } from '../../context/authContext'; 
-import { Alert } from 'react-native';
 import { 
   AuthResponse, 
   LoginData, 
@@ -10,36 +7,29 @@ import {
   VerifyOtpPayload, 
   VerifyOtpResponse, 
   VerifyResetOtpPayload,
-  VerifyResetOtpResponse
+  VerifyResetOtpResponse,
+  WebPushSubscriptionPayload
 } from '../../types/auth.types';
+import { toast } from '../../components/ui/Toast'; // 👈 Import Toast
 
-// Helper to save session
-const saveSession = async (token: string, user: any) => {
-  if (!token) return; // Prevent saving null/undefined
-  await SecureStore.setItemAsync('auth_token', token);
-  await SecureStore.setItemAsync('user_data', JSON.stringify(user));
+export const useCurrentUser = () => {
+  return useQuery({
+    queryKey: ['currentUser'],
+    queryFn: authService.getCurrentUser,
+    retry: false, 
+    staleTime: 1000 * 60 * 5,
+  });
 };
 
 export const useLogin = () => {
-  const { setAuth } = useAuth();
-
   return useMutation<AuthResponse, Error, LoginData>({
     mutationFn: authService.login,
-    onSuccess: async (data) => {
-      // Check if login requires OTP first
-      if (data.requireOtp) {
-         // UI handles redirection, we don't save session yet
-         return; 
-      }
-      
-      if (data.token) {
-        await saveSession(data.token, data.user);
-        await setAuth(data.user, data.token);
-      }
+    onSuccess: (data) => {
+        // Optional: toast.success("Welcome back!");
     },
     onError: (error: any) => {
       const msg = error?.response?.data?.message || error.message || "Login failed";
-      Alert.alert("Login Failed", msg);
+      toast.error(msg);
     },
   });
 };
@@ -47,50 +37,39 @@ export const useLogin = () => {
 export const useRegister = () => {
   return useMutation<AuthResponse, Error, RegisterData>({
     mutationFn: authService.register,
-    // No onSuccess alert needed, UI handles navigation
     onError: (error: any) => {
       const msg = error?.response?.data?.message || error.message || "Registration failed";
-      Alert.alert("Registration Failed", msg);
+      toast.error(msg);
     },
   });
 };
 
 export const useVerifyOtp = () => {
-  const { setAuth } = useAuth();
-
   return useMutation<VerifyOtpResponse, Error, VerifyOtpPayload>({
     mutationFn: authService.verifyOtp,
-    onSuccess: async (data) => {
-      // [FIX] Defensive check. Backend MUST return a token now.
-      if (!data.token) {
-        Alert.alert("Error", "Verified, but server sent no token. Please login.");
-        return;
-      }
-      await saveSession(data.token, data.user);
-      await setAuth(data.user, data.token);
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success("Verification Successful");
+      } 
     },
     onError: (error: any) => {
-      // User Friendly Error Handling
       let msg = error?.response?.data?.message || error.message || "Verification Failed";
-      
-      // Catch specific backend error strings and make them nicer if needed
-      if (msg.includes("jwt expired")) msg = "Your code has expired. Please login again.";
+      if (msg.includes("jwt expired")) msg = "Code expired. Please login again.";
       if (msg.includes("malformed")) msg = "Invalid code format.";
       
-      Alert.alert("Verification Failed", msg);
+      toast.error(msg);
     }
   });
 };
 
-// ... keep useForgotPassword and useResetPassword as is
 export const useForgotPassword = () => {
   return useMutation({
     mutationFn: authService.forgotPassword,
     onSuccess: () => {
-      Alert.alert("Email Sent", "Check your inbox for the reset code.");
+      toast.success("Reset code sent to your email");
     },
     onError: (error: any) => {
-      Alert.alert("Error", error?.response?.data?.message || "Could not send email.");
+      toast.error(error?.response?.data?.message || "Could not send email");
     }
   });
 };
@@ -99,10 +78,10 @@ export const useResetPassword = () => {
   return useMutation({
     mutationFn: authService.resetPassword,
     onSuccess: () => {
-      Alert.alert("Success", "Password reset successfully! Login with your new password.");
+      toast.success("Password reset! You can now login.");
     },
     onError: (error: any) => {
-      Alert.alert("Error", "Failed to reset password.");
+      toast.error("Failed to reset password");
     }
   });
 };
@@ -110,9 +89,22 @@ export const useResetPassword = () => {
 export const useVerifyResetOtp = () => {
   return useMutation<VerifyResetOtpResponse, Error, VerifyResetOtpPayload>({
     mutationFn: authService.verifyResetOtp,
+    onSuccess: () => {
+        toast.success("Code verified");
+    },
     onError: (error: any) => {
-      const msg = error?.response?.data?.message || error.message || "Invalid or expired code.";
-      Alert.alert("Error", msg);
+      const msg = error?.response?.data?.message || error.message || "Invalid or expired code";
+      toast.error(msg);
     }
+  });
+};
+
+export const useSubscribeToWebPush = () => {
+  return useMutation({
+    mutationFn: (subscription: WebPushSubscriptionPayload) =>
+      authService.subscribeToWebPush(subscription),
+    onError: (error) => {
+      console.error("Failed to sync web push subscription:", error);
+    },
   });
 };

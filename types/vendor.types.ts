@@ -1,3 +1,4 @@
+
 // 1. Matches Prisma "OrderStatus" Enum
 export type OrderStatus = 
   | 'PENDING' 
@@ -79,4 +80,52 @@ export interface SingleOrderResponse {
 export interface UpdateOrderStatusPayload {
   orderId: string;
   status: OrderStatus;
+}
+
+
+export interface VendorOrder {
+  id: string;
+  reference: string;
+  status: string;
+  totalAmount: number;
+  deliveryFee: number;
+  vendorFoodTotal?: number;
+  createdAt: string;
+  items: any[];
+  customer: {
+    name: string;
+    phone: string;
+    address: string;
+  };
+  rider?: {
+    name: string;
+    phone: string;
+  };
+}
+
+export interface Transaction {
+  id: string;
+  amount: number;
+  type: 'CREDIT' | 'DEBIT';
+  status: 'PENDING' | 'SUCCESS' | 'FAILED';
+  description: string;
+  createdAt: string;
+}
+
+export interface VendorEarnings {
+  availableBalance: number;
+  pendingBalance: number;
+  totalEarnings: number;
+  withdrawn: number;
+  transactions: Transaction[];
+}
+
+export interface PayoutPayload {
+  amount: number;
+  bankDetails: {
+    bankName: string; // Used for UI display
+    bankCode: string; // Required by Backend/Paystack (e.g. "058")
+    accountNumber: string;
+    accountName: string;
+  };
 }

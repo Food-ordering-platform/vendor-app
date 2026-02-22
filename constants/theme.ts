@@ -35,6 +35,7 @@ export const THEME = {
     danger: PALETTE.redDanger,
     border: PALETTE.gray200,
     white: PALETTE.white,
+    error:PALETTE.redDanger,
     
     // Status Bar Props (Optional helper)
     statusBar: 'dark-content' as const,

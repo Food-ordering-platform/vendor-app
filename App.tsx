@@ -1,14 +1,20 @@
 import React from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "./constants/theme";
-import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context"; 
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./context/authContext";
-import { ActivityIndicator, View, Platform } from "react-native";
+import { ActivityIndicator, View, Platform, StyleSheet } from "react-native";
+// import { useOrderNotification } from "./hooks/useOrderNotification";
+import { Toaster } from "./components/ui/Toast";
 
 // Screens
 import OnboardingScreen from "./screens/OnboardingScreen";
@@ -24,52 +30,47 @@ import VerifyOtpScreen from "./screens/VerifyOtpScreen";
 import ForgotPasswordScreen from "./screens/ForgotPasswordScreen";
 import VerifyResetOtpScreen from "./screens/VerifyResetOtpScreen";
 import ResetPasswordScreen from "./screens/ResetPasswordScreen";
+import TermsScreen from "./screens/TermsScreen";
+import PrivacyScreen from "./screens/PrivacyScreen";
+import SetupLocationScreen from "./screens/SetupLocationScreen";
+import VerificationPendingScreen from "./screens/VerificationPendingScreen"; // 👈 IMPORT THIS
+
 import { ThemeProvider } from "./context/themeContext";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const queryClient = new QueryClient();
 
-// --- 1. THE TABS (Main App) ---
+// ... [Keep your VendorTabs function exactly as it was] ...
 function VendorTabs() {
-  const insets = useSafeAreaInsets(); 
+  const insets = useSafeAreaInsets();
 
   return (
-   <Tab.Navigator
+    <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textLight,
-        tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopWidth: 0,
-          elevation: 10,
-          shadowColor: '#000',
-          shadowOpacity: 0.1,
-          shadowRadius: 10,
-          
-          // [FIX] Use calculated height instead of 'auto'
-          // 60px is the content area. We add the bottom inset to it.
-          height: 60 + (insets.bottom > 0 ? insets.bottom : 10),
-          
-          // [FIX] Push content up by the safe area amount
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
-          
-          paddingTop: 10, // Top spacing for balance
-        },
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            height: 65 + (insets.bottom > 0 ? insets.bottom : 10),
+            paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
+          }
+        ],
         tabBarIcon: ({ color, focused }) => {
           let iconName: any;
-          if (route.name === "Orders") iconName = focused ? "fast-food" : "fast-food-outline";
-          else if (route.name === "Menu") iconName = focused ? "restaurant" : "restaurant-outline";
-          else if (route.name === "Earnings") iconName = focused ? "wallet" : "wallet-outline";
-          else if (route.name === "Profile") iconName = focused ? "person" : "person-outline";
+          if (route.name === "Orders")
+            iconName = focused ? "fast-food" : "fast-food-outline";
+          else if (route.name === "Menu")
+            iconName = focused ? "restaurant" : "restaurant-outline";
+          else if (route.name === "Earnings")
+            iconName = focused ? "wallet" : "wallet-outline";
+          else if (route.name === "Profile")
+            iconName = focused ? "person" : "person-outline";
           return <Ionicons name={iconName} size={24} color={color} />;
         },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
-          marginBottom: 5, // [FIX] Add slight margin to separate text from bottom edge
-        }
+        tabBarLabelStyle: { fontSize: 12, fontWeight: "600", marginBottom: 5 },
       })}
     >
       <Tab.Screen name="Orders" component={DashboardScreen} />
@@ -80,45 +81,65 @@ function VendorTabs() {
   );
 }
 
-// --- 2. NAVIGATION CONTROLLER ---
 function NavigationContent() {
-  const { isAuthenticated, isLoading, user } = useAuth(); // [FIX] Get 'user' to check restaurant status
+  const { isAuthenticated, isLoading, user } = useAuth();
+  // useOrderNotification();
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      fallback={<ActivityIndicator color={COLORS.primary} />}
+    >
       <StatusBar style="dark" />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
-          // [LOGIC] Check if user has a restaurant
+          // 🛑 1. CHECK: Does the user have a restaurant profile?
           user?.restaurant ? (
-            // HAS RESTAURANT -> Go to Dashboard
-            <>
-              <Stack.Screen name="Main" component={VendorTabs} />
-              <Stack.Screen name="AddMenuItem" component={AddMenuItemScreen} />
-            </>
+             // 🛑 2. CHECK: Is the restaurant APPROVED?
+             user.isVerified === true ? (
+                // ✅ YES: Show Main App
+                <>
+                  <Stack.Screen name="Main" component={VendorTabs} />
+                  <Stack.Screen name="AddMenuItem" component={AddMenuItemScreen} />
+                  <Stack.Screen name="SetupLocation" component={SetupLocationScreen} />
+                </>
+             ) : (
+                // ❌ NO: Show Pending Screen (Gatekeeper)
+                <Stack.Screen 
+                  name="VerificationPending" 
+                  component={VerificationPendingScreen} 
+                />
+             )
           ) : (
-            // NO RESTAURANT -> Go to Profile (Setup Mode)
-            <Stack.Screen 
-              name="Profile" 
-              component={ProfileScreen} 
-              initialParams={{ isOnboarding: true }} // Tell profile screen we are in setup mode
-            />
+            // 📝 3. NO RESTAURANT YET: Show Setup Flow
+            <>
+              <Stack.Screen
+                name="Profile"
+                component={ProfileScreen}
+                initialParams={{ isOnboarding: true }}
+              />
+              <Stack.Screen
+                name="SetupLocation"
+                component={SetupLocationScreen}
+              />
+            </>
           )
         ) : (
-          // NOT LOGGED IN -> Auth Flow
+          // 🔒 4. NOT LOGGED IN: Show Auth Flow
           <>
             <Stack.Screen name="Splash" component={SplashScreen} />
             <Stack.Screen name="Onboarding" component={OnboardingScreen} />
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Signup" component={SignupScreen} />
+            <Stack.Screen name="Terms" component={TermsScreen} />
+            <Stack.Screen name="Privacy" component={PrivacyScreen} />
             <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             <Stack.Screen name="VerifyResetOtp" component={VerifyResetOtpScreen} />
@@ -134,12 +155,28 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <SafeAreaProvider>
-          <ThemeProvider>
-            <NavigationContent />
-          </ThemeProvider>
-        </SafeAreaProvider>
+          <SafeAreaProvider>
+            <GestureHandlerRootView>
+              <ThemeProvider>
+                <NavigationContent />
+                <Toaster />
+              </ThemeProvider>
+            </GestureHandlerRootView>
+          </SafeAreaProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: "#fff",
+    borderTopWidth: 0,
+    paddingTop: 10,
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+});
