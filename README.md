@@ -4,7 +4,6 @@
 ![React Native](https://img.shields.io/badge/React_Native-0.81-blue?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)
 ![React Query](https://img.shields.io/badge/TanStack_Query-5.90-FF4154?logo=react-query)
-![Socket.io](https://img.shields.io/badge/Socket.io-4.8-black?logo=socket.io)
 
 The official **ChowEazy Vendor App** is a powerful cross-platform application (iOS and Android) built to help restaurant owners and chefs manage their digital storefronts. Built with **React Native** and **Expo**, it provides real-time order management, menu customization, and financial tracking.
 
