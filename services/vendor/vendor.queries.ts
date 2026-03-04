@@ -23,19 +23,20 @@ export const useVendorEarnings = (restaurantId: string) => {
 
 export const useVendorTransactions = (restaurantId: string) => {
   return useQuery({
-    queryKey: ['vendorEarnings', restaurantId],
-    queryFn: () => VendorService.getEarnings(),
-    select: (data) => data.transactions
+    queryKey: ['vendorTransactions', restaurantId],
+    queryFn: () => VendorService.getTransactions(),
+    select: (data) => data.data
   });
 };
 
 export const useRequestPayout = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { restaurantId: string; amount: number; bankDetails: any }) =>
-      VendorService.requestPayout({ amount: data.amount, bankDetails: data.bankDetails }),
+    mutationFn: (data: {  amount: number; bankDetails: any }) =>
+      VendorService.requestPayout(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vendorEarnings'] });
+      queryClient.invalidateQueries({ queryKey: ['vendorTransactions'] });
       toast.success("Payout request submitted");
     },
     onError: (error: any) => {

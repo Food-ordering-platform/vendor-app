@@ -87,7 +87,6 @@ export default function EarningsScreen() {
 
     // Proceed with Valid Data
     payout({
-      restaurantId,
       amount: result.data.amount,
       bankDetails: { 
         bankName: result.data.bankName, 

@@ -22,6 +22,10 @@ export const VendorService = {
     const response = await api.post(`/vendor/payout`, data);
     return response.data;
   },
+  getTransactions: async () => {
+    const response = await api.get(`/vendor/transactions`) ;
+    return response.data;
+  },
 
   // ==========================================
   // 🚀 EXPLICIT ORDER ACTIONS

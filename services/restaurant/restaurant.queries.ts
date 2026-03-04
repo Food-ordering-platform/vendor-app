@@ -105,37 +105,37 @@ export const useDeleteMenuItem = () => {
   });
 };
 
-// Fetch Balance
-export const useRestaurantEarnings = (restaurantId: string) => {
-  return useQuery({
-    queryKey: ["restaurant-earnings", restaurantId],
-    queryFn: () => restaurantService.getEarnings(restaurantId),
-    enabled: !!restaurantId,
-  });
-};
+// // Fetch Balance
+// export const useRestaurantEarnings = (restaurantId: string) => {
+//   return useQuery({
+//     queryKey: ["restaurant-earnings", restaurantId],
+//     queryFn: () => restaurantService.getEarnings(restaurantId),
+//     enabled: !!restaurantId,
+//   });
+// };
 
-// Fetch Transactions
-export const useRestaurantTransactions = (restaurantId: string) => {
-  return useQuery({
-    queryKey: ["restaurant-transactions", restaurantId],
-    queryFn: () => restaurantService.getTransactions(restaurantId),
-    enabled: !!restaurantId,
-  });
-};
+// // Fetch Transactions
+// export const useRestaurantTransactions = (restaurantId: string) => {
+//   return useQuery({
+//     queryKey: ["restaurant-transactions", restaurantId],
+//     queryFn: () => restaurantService.getTransactions(restaurantId),
+//     enabled: !!restaurantId,
+//   });
+// };
 
-// Request Payout
-export const useRequestPayout = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data: { restaurantId: string; amount: number; bankDetails: any }) => 
-      restaurantService.requestPayout(data.restaurantId, data.amount, data.bankDetails),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["restaurant-earnings", variables.restaurantId] });
-      queryClient.invalidateQueries({ queryKey: ["restaurant-transactions", variables.restaurantId] });
-      toast.success("Payout request submitted");
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Payout request failed");
-    }
-  });
-};
+// // Request Payout
+// export const useRequestPayout = () => {
+//   const queryClient = useQueryClient();
+//   return useMutation({
+//     mutationFn: (data: { restaurantId: string; amount: number; bankDetails: any }) => 
+//       restaurantService.requestPayout(data.restaurantId, data.amount, data.bankDetails),
+//     onSuccess: (_, variables) => {
+//       queryClient.invalidateQueries({ queryKey: ["restaurant-earnings", variables.restaurantId] });
+//       queryClient.invalidateQueries({ queryKey: ["restaurant-transactions", variables.restaurantId] });
+//       toast.success("Payout request submitted");
+//     },
+//     onError: (error: any) => {
+//       toast.error(error.message || "Payout request failed");
+//     }
+//   });
+// };
