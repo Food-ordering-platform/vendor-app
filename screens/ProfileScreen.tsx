@@ -121,14 +121,6 @@ export default function ProfileScreen({ navigation, route }: any) {
        const message = hasRestaurant ? "Profile Updated Successfully!" : "Restaurant Launched Successfully!";
        toast.success(message);
 
-       if (!hasRestaurant) {
-           navigation.dispatch(
-            CommonActions.reset({
-              index: 0,
-              routes: [{ name: 'Main', params: { screen: 'Orders' } }],
-            })
-          );
-       }
     };
 
     if (hasRestaurant) {

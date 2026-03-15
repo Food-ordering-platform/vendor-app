@@ -10,7 +10,6 @@ export interface RegisterData {
   phone: string; // Phone is usually mandatory for vendors
   role: "VENDOR"; // Strict typing for this app
   terms: boolean
-  restaurantName: string;
 }
 
 export interface LoginData {

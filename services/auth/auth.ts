@@ -99,8 +99,5 @@ export const authService = {
     const response = await api.patch("/auth/profile", data);
     return response.data;
   },
-  subscribeToWebPush: async (subscription: WebPushSubscriptionPayload) => {
-    const { data } = await api.post("/auth/web-push/subscribe", { subscription });
-    return data;
-  },
+ 
 };

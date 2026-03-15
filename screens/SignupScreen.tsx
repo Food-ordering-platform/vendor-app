@@ -27,7 +27,7 @@ export default function SignupScreen() {
     email: '',
     password: '',
     phone: '',
-    restaurantName: '',
+
     role: 'VENDOR' as const, // 👈 THE FIX: Forces type to be "VENDOR" instead of string
     terms: false
   });
@@ -36,7 +36,7 @@ export default function SignupScreen() {
 
   const handleRegister = async () => {
     // 1. Basic Validation
-    if (!formData.name || !formData.email || !formData.password || !formData.restaurantName) {
+    if (!formData.name || !formData.email || !formData.password) {
       Alert.alert("Missing Fields", "Please fill in all required fields.");
       return;
     }
@@ -106,7 +106,7 @@ export default function SignupScreen() {
             </View>
 
             {/* Restaurant Name */}
-            <View style={styles.inputGroup}>
+            {/* <View style={styles.inputGroup}>
               <Text style={styles.label}>Restaurant Name</Text>
               <TextInput
                 style={styles.input}
@@ -115,7 +115,7 @@ export default function SignupScreen() {
                 value={formData.restaurantName}
                 onChangeText={(text) => setFormData({...formData, restaurantName: text})}
               />
-            </View>
+            </View> */}
 
             {/* Email */}
             <View style={styles.inputGroup}>

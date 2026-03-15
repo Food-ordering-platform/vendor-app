@@ -98,13 +98,3 @@ export const useVerifyResetOtp = () => {
     }
   });
 };
-
-export const useSubscribeToWebPush = () => {
-  return useMutation({
-    mutationFn: (subscription: WebPushSubscriptionPayload) =>
-      authService.subscribeToWebPush(subscription),
-    onError: (error) => {
-      console.error("Failed to sync web push subscription:", error);
-    },
-  });
-};
