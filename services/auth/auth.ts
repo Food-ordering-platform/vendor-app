@@ -13,35 +13,37 @@ import {
   VerifyResetOtpResponse,
   ResetPasswordPayload,
   ResetPasswordResponse,
-  WebPushSubscriptionPayload,
 } from "../../types/auth.types";
 
 export const authService = {
+  // 1. Login
   // 1. Login
   login: async (data: LoginData): Promise<AuthResponse> => {
     try {
       const payload = { ...data, clientType: "mobile" as const };
       const response = await api.post("/auth/login", payload);
       
-      // Backend returns: { message, token, user, requireOtp }
-      const { token, user, requireOtp } = response.data;
+      // 🟢 THE FIX: Extract refreshToken from the backend response!
+      const { token, refreshToken, user, requireOtp } = response.data;
 
-      // Handle cases where backend might nest data (defensive coding)
-      // but based on your controller, it is top-level.
+      // Handle cases where backend might nest data
       if (!token && !requireOtp) {
         throw new Error("No access token or OTP requirement received");
       }
 
       return {
         token,
+        refreshToken, // 🟢 CRITICAL: Pass it to the context!
         user,
-        requireOtp, // <--- CRITICAL: Pass this through!
+        requireOtp, 
       };
     } catch (error: any) {
       console.log("Login error:", error.response?.data || error.message);
       throw error;
     }
   },
+
+  
 
   // 2. Register
   register: async (data: RegisterData): Promise<AuthResponse> => {

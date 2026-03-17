@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await refetch();
   };
 
-  const login = async (data: LoginData): Promise<AuthResponse> => {
+ const login = async (data: LoginData): Promise<AuthResponse> => {
     try {
       const res = await loginMutation.mutateAsync(data);
       
@@ -40,22 +40,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (res.token && res.refreshToken) {
+        // Save the tokens to the keychain
         await tokenStorage.setItem('access_token', res.token);
         await tokenStorage.setItem('refresh_token', res.refreshToken);
         
-        // If your backend returns the user object on login, set it directly!
-        if (res.user) {
-           queryClient.setQueryData(['currentUser'], res.user);
-        } else {
-           // Only refetch if absolutely necessary, but add a tiny delay to let SecureStore settle
-           setTimeout(() => refetch(), 100); 
-        }
+        // 🟢 Force a network fetch to populate 'currentUser' and trigger App.tsx
+        await refetch();
+      } else {
+        console.error("Backend didn't send both tokens!", res);
       }
       return res;
     } catch (error: any) {
       throw error;
     }
-  };;
+  };
 
   const register = async (data: RegisterData): Promise<AuthResponse> => {
     try {

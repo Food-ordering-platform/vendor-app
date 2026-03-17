@@ -1,5 +1,5 @@
 import axios from "axios";
-import { tokenStorage } from "../utils/storage"; 
+import { tokenStorage } from "../utils/storage";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -9,10 +9,8 @@ if (!BASE_URL) {
 
 const api = axios.create({
   baseURL: BASE_URL,
-  headers: {
-    "Accept": "application/json",
-  },
-  timeout: 60000, 
+
+  timeout: 60000,
 });
 
 // 🟢 Request Interceptor: Attach the Access Token
@@ -24,7 +22,7 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // 🟢 Response Interceptor: The Silent Refresher
@@ -39,15 +37,17 @@ api.interceptors.response.use(
 
       try {
         const refreshToken = await tokenStorage.getItem("refresh_token");
-        
+
         if (!refreshToken) {
           throw new Error("No refresh token found");
         }
 
         // Use global axios to avoid infinite loops
-        const res = await axios.post(`${BASE_URL}/auth/refresh`, {
-          refreshToken: refreshToken
-        });
+        const res = await axios.post(
+          `${BASE_URL}/auth/refresh`,
+          { refreshToken: refreshToken }, // Data
+          { headers: { "Content-Type": "application/json" } }, // Config
+        );
 
         const newAccessToken = res.data.accessToken;
 
@@ -57,30 +57,41 @@ api.interceptors.response.use(
         // Update the failed request and retry
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
-
-      } catch (refreshError) {
+      } catch (refreshError: any) {
         console.error("❌ Session completely expired. Logging out vendor.");
         // Nuke both tokens
         await tokenStorage.removeItem("access_token");
         await tokenStorage.removeItem("refresh_token");
-        
-        return Promise.reject({ message: "Session expired. Please log in again.", status: 401 });
+
+        return Promise.reject({
+          message: "Session expired. Please log in again.",
+          status: 401,
+        });
       }
     }
 
     // Standard Error Handling
     if (error.response) {
-      console.error("❌ API Error:", error.response.status, error.response.data);
-      const message = error.response.data.message || error.response.data.error || "Something went wrong";
+      console.error(
+        "❌ API Error:",
+        error.response.status,
+        error.response.data,
+      );
+      const message =
+        error.response.data.message ||
+        error.response.data.error ||
+        "Something went wrong";
       return Promise.reject({ message, status: error.response.status });
     } else if (error.request) {
       console.error("❌ Network Error:", error.message);
-      return Promise.reject({ message: "Network Error. Check internet or server status." });
+      return Promise.reject({
+        message: "Network Error. Check internet or server status.",
+      });
     } else {
       console.error("❌ Unknown Error:", error.message);
       return Promise.reject({ message: "An unexpected error occurred." });
     }
-  }
+  },
 );
 
 export default api;

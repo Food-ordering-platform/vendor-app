@@ -168,7 +168,7 @@ export default function AddMenuItemScreen({ navigation, route }: any) {
           </View>
 
           {/* Description */}
-          <View style={styles.inputGroup}>
+          {/* <View style={styles.inputGroup}>
             <View style={styles.labelRow}>
               <Ionicons name="document-text" size={18} color={COLORS.primary} />
               <Text style={styles.label}>Description</Text>
@@ -183,7 +183,7 @@ export default function AddMenuItemScreen({ navigation, route }: any) {
               placeholderTextColor={COLORS.textLight}
               textAlignVertical="top"
             />
-          </View>
+          </View> */}
 
           {/* Price & Category */}
           <View style={styles.row}>

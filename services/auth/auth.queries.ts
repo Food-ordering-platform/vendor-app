@@ -11,13 +11,25 @@ import {
   WebPushSubscriptionPayload
 } from '../../types/auth.types';
 import { toast } from '../../components/ui/Toast'; // 👈 Import Toast
+import { useEffect, useState } from 'react';
+import { tokenStorage } from '@/utils/storage';
 
 export const useCurrentUser = () => {
+  const [hasToken, setHasToken] = useState(false);
+
+  // Quickly check if we have a token before we blindly query the backend
+  useEffect(() => {
+    tokenStorage.getItem('access_token').then(token => {
+      setHasToken(!!token);
+    });
+  }, []);
+
   return useQuery({
     queryKey: ['currentUser'],
     queryFn: authService.getCurrentUser,
-    retry: false, 
-    staleTime: 1000 * 60 * 5,
+    // 🟢 THE FIX: Only run this query if we actually have a token!
+    enabled: hasToken, 
+    retry: false, // Don't retry auth checks
   });
 };
 
