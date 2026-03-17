@@ -1,9 +1,8 @@
 import React, { createContext, useContext, ReactNode } from 'react';
-import * as SecureStore from 'expo-secure-store'; 
-import { Platform } from 'react-native'; // 👈 Import Platform
 import { useQueryClient } from '@tanstack/react-query';
 import { LoginData, RegisterData, User, AuthResponse } from '../types/auth.types';
 import { useCurrentUser, useLogin, useRegister } from '../services/auth/auth.queries';
+import { tokenStorage } from '../utils/storage'; // 🟢 Import our clean storage utility
 
 interface AuthContextType {
   user: User | null;
@@ -17,23 +16,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// 👇 HELPER FUNCTIONS FOR STORAGE
-const saveToken = async (token: string) => {
-  if (Platform.OS === 'web') {
-    localStorage.setItem('auth_token', token);
-  } else {
-    await SecureStore.setItemAsync('auth_token', token);
-  }
-};
-
-const deleteToken = async () => {
-  if (Platform.OS === 'web') {
-    localStorage.removeItem('auth_token');
-  } else {
-    await SecureStore.deleteItemAsync('auth_token');
-  }
-};
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
@@ -51,14 +33,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const res = await loginMutation.mutateAsync(data);
       
       if (res.requireOtp) {
+        if (res.token) {
+           await tokenStorage.setItem('access_token', res.token);
+        }
         return res; 
       }
 
-      if (res.token) {
-        // 👇 USE HELPER FUNCTION (Safe for Web)
-        await saveToken(res.token);
+      if (res.token && res.refreshToken) {
+        await tokenStorage.setItem('access_token', res.token);
+        await tokenStorage.setItem('refresh_token', res.refreshToken);
         
-        await refetch(); 
+        // If your backend returns the user object on login, set it directly!
+        if (res.user) {
+           queryClient.setQueryData(['currentUser'], res.user);
+        } else {
+           // Only refetch if absolutely necessary, but add a tiny delay to let SecureStore settle
+           setTimeout(() => refetch(), 100); 
+        }
+      }
+      return res;
+    } catch (error: any) {
+      throw error;
+    }
+  };;
+
+  const register = async (data: RegisterData): Promise<AuthResponse> => {
+    try {
+      const res = await registerMutation.mutateAsync(data);
+      
+      if (res.token && res.refreshToken) {
+        await tokenStorage.setItem('access_token', res.token);
+        await tokenStorage.setItem('refresh_token', res.refreshToken);
+        await refetch();
       }
       return res;
     } catch (error: any) {
@@ -66,17 +72,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const register = async (data: RegisterData): Promise<AuthResponse> => {
-    try {
-      return await registerMutation.mutateAsync(data);
-    } catch (error: any) {
-      throw error;
-    }
-  };
-
   const logout = async () => {
-    // 👇 USE HELPER FUNCTION
-    await deleteToken();
+    // 🟢 Destroy both tokens on logout
+    await tokenStorage.removeItem('access_token');
+    await tokenStorage.removeItem('refresh_token');
+    
     queryClient.setQueryData(['currentUser'], null);
     queryClient.removeQueries({ queryKey: ['currentUser'] });
   };

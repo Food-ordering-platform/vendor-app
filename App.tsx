@@ -12,8 +12,7 @@ import {
 } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "./context/authContext";
-import { ActivityIndicator, View, Platform, StyleSheet } from "react-native";
-// import { useOrderNotification } from "./hooks/useOrderNotification";
+import { ActivityIndicator, View, StyleSheet } from "react-native";
 import { Toaster } from "./components/ui/Toast";
 
 // Screens
@@ -33,15 +32,32 @@ import ResetPasswordScreen from "./screens/ResetPasswordScreen";
 import TermsScreen from "./screens/TermsScreen";
 import PrivacyScreen from "./screens/PrivacyScreen";
 import SetupLocationScreen from "./screens/SetupLocationScreen";
-import VerificationPendingScreen from "./screens/VerificationPendingScreen"; // 👈 IMPORT THIS
+import VerificationPendingScreen from "./screens/VerificationPendingScreen";
 
 import { ThemeProvider } from "./context/themeContext";
+import { usePushNotification } from "./hooks/usePushNotification";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
-const queryClient = new QueryClient();
 
-// ... [Keep your VendorTabs function exactly as it was] ...
+// 🟢 THE FIX: Configure QueryClient to NEVER retry 401 Unauthorized errors
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error: any) => {
+        // Stop retrying instantly if the session is expired (401)
+        if (error?.status === 401 || error?.response?.status === 401) {
+          return false;
+        }
+        // Otherwise, allow standard retry up to 2 times for network blips
+        return failureCount < 2;
+      },
+      // Prevent automatic background refetches while checking auth state
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
 function VendorTabs() {
   const insets = useSafeAreaInsets();
 
@@ -83,11 +99,13 @@ function VendorTabs() {
 
 function NavigationContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
-  // useOrderNotification();
+  usePushNotification();
 
+  // Because we fixed QueryClient, isLoading will quickly become false if the token is dead.
+  // We leave this as is because we DO want to show a spinner during the initial app load.
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" }}>
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
@@ -156,7 +174,8 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
           <SafeAreaProvider>
-            <GestureHandlerRootView>
+            {/* Added flex: 1 to ensure GestureHandler takes full height */}
+            <GestureHandlerRootView style={{ flex: 1 }}>
               <ThemeProvider>
                 <NavigationContent />
                 <Toaster />

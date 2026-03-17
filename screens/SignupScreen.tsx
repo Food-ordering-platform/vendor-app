@@ -156,20 +156,6 @@ export default function SignupScreen() {
               />
             </View> */}
 
-            {/* Terms and Conditions */}
-            <View style={styles.termsContainer}>
-              <TouchableOpacity 
-                onPress={() => setFormData({...formData, terms: !formData.terms})}
-                style={styles.checkboxRow}
-              >
-                <Ionicons 
-                  name={formData.terms ? "checkbox" : "checkbox-outline"} 
-                  size={20} 
-                  color={COLORS.primary || '#000'} 
-                />
-                <Text style={styles.termsText}>I agree to the Terms and Conditions</Text>
-              </TouchableOpacity>
-            </View>
 
             {/* Password */}
             <View style={styles.inputGroup}>
@@ -187,6 +173,20 @@ export default function SignupScreen() {
                   <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#666" />
                 </TouchableOpacity>
               </View>
+            </View>
+            {/* Terms and Conditions */}
+            <View style={styles.termsContainer}>
+              <TouchableOpacity 
+                onPress={() => setFormData({...formData, terms: !formData.terms})}
+                style={styles.checkboxRow}
+              >
+                <Ionicons 
+                  name={formData.terms ? "checkbox" : "checkbox-outline"} 
+                  size={20} 
+                  color={COLORS.primary || '#000'} 
+                />
+                <Text style={styles.termsText}>I agree to the Terms and Conditions</Text>
+              </TouchableOpacity>
             </View>
 
             {/* Submit Button */}

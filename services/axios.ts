@@ -1,6 +1,5 @@
 import axios from "axios";
-import * as SecureStore from "expo-secure-store";
-import { Platform } from "react-native"; // 👈 Import Platform
+import { tokenStorage } from "../utils/storage"; 
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -10,26 +9,16 @@ if (!BASE_URL) {
 
 const api = axios.create({
   baseURL: BASE_URL,
-  // headers: {
-  //   "Accept": "application/json",
-  // },
+  headers: {
+    "Accept": "application/json",
+  },
   timeout: 60000, 
 });
 
-// Add Token to requests
+// 🟢 Request Interceptor: Attach the Access Token
 api.interceptors.request.use(
   async (config) => {
-    console.log(`🚀 Requesting: ${config.baseURL}${config.url}`);
-    
-    let token;
-    
-    // Check Platform to decide storage method
-    if (Platform.OS === 'web') {
-      token = localStorage.getItem("auth_token");
-    } else {
-      token = await SecureStore.getItemAsync("auth_token");
-    }
-
+    const token = await tokenStorage.getItem("access_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -38,10 +27,48 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Handle Responses & Errors
+// 🟢 Response Interceptor: The Silent Refresher
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Catch 401 Unauthorized and Refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        const refreshToken = await tokenStorage.getItem("refresh_token");
+        
+        if (!refreshToken) {
+          throw new Error("No refresh token found");
+        }
+
+        // Use global axios to avoid infinite loops
+        const res = await axios.post(`${BASE_URL}/auth/refresh`, {
+          refreshToken: refreshToken
+        });
+
+        const newAccessToken = res.data.accessToken;
+
+        // Save the brand new Access Token
+        await tokenStorage.setItem("access_token", newAccessToken);
+
+        // Update the failed request and retry
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        return api(originalRequest);
+
+      } catch (refreshError) {
+        console.error("❌ Session completely expired. Logging out vendor.");
+        // Nuke both tokens
+        await tokenStorage.removeItem("access_token");
+        await tokenStorage.removeItem("refresh_token");
+        
+        return Promise.reject({ message: "Session expired. Please log in again.", status: 401 });
+      }
+    }
+
+    // Standard Error Handling
     if (error.response) {
       console.error("❌ API Error:", error.response.status, error.response.data);
       const message = error.response.data.message || error.response.data.error || "Something went wrong";

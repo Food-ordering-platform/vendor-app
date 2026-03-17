@@ -25,7 +25,7 @@ export const useLogin = () => {
   return useMutation<AuthResponse, Error, LoginData>({
     mutationFn: authService.login,
     onSuccess: (data) => {
-        // Optional: toast.success("Welcome back!");
+      toast.success("Welcome back!");
     },
     onError: (error: any) => {
       const msg = error?.response?.data?.message || error.message || "Login failed";
