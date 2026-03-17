@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS, } from '../constants/theme';
 import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SLIDES = [
   {
@@ -38,8 +39,15 @@ export default function OnboardingScreen({ navigation }: any) {
   const flatListRef = useRef<FlatList>(null);
   const { width, height } = useWindowDimensions();
 
-  const skip = () => {
-    navigation.replace('Login');
+const skip = async () => {
+    try {
+      // Set the flag so they never see Onboarding again
+      await AsyncStorage.setItem('alreadyLaunched', 'true');
+      navigation.replace('Login');
+    } catch (error) {
+      console.error("Error setting onboarding flag:", error);
+      navigation.replace('Login'); // Fail gracefully and proceed
+    }
   };
 
   const goToNextSlide = () => {

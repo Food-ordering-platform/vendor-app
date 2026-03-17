@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -36,6 +36,7 @@ import VerificationPendingScreen from "./screens/VerificationPendingScreen";
 
 import { ThemeProvider } from "./context/themeContext";
 import { usePushNotification } from "./hooks/usePushNotification";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -72,7 +73,7 @@ function VendorTabs() {
           {
             height: 65 + (insets.bottom > 0 ? insets.bottom : 10),
             paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
-          }
+          },
         ],
         tabBarIcon: ({ color, focused }) => {
           let iconName: any;
@@ -99,13 +100,33 @@ function VendorTabs() {
 
 function NavigationContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const [isFirstLaunch, setIsFirstLaunch] = useState<boolean | null>(null);
   usePushNotification();
+
+  useEffect(() => {
+    // Check if this is the user's first time opening the app
+    AsyncStorage.getItem("alreadyLaunched").then((value) => {
+      if (value == null) {
+        setIsFirstLaunch(true);
+      } else {
+        setIsFirstLaunch(false);
+      }
+    });
+  }, []);
 
   // Because we fixed QueryClient, isLoading will quickly become false if the token is dead.
   // We leave this as is because we DO want to show a spinner during the initial app load.
-  if (isLoading) {
+  // Show a blank screen or a simple spinner while checking AsyncStorage
+  if (isLoading || isFirstLaunch === null) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#fff",
+        }}
+      >
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
@@ -120,21 +141,27 @@ function NavigationContent() {
         {isAuthenticated ? (
           // 🛑 1. CHECK: Does the user have a restaurant profile?
           user?.restaurant ? (
-             // 🛑 2. CHECK: Is the restaurant APPROVED?
-             user.isVerified === true ? (
-                // ✅ YES: Show Main App
-                <>
-                  <Stack.Screen name="Main" component={VendorTabs} />
-                  <Stack.Screen name="AddMenuItem" component={AddMenuItemScreen} />
-                  <Stack.Screen name="SetupLocation" component={SetupLocationScreen} />
-                </>
-             ) : (
-                // ❌ NO: Show Pending Screen (Gatekeeper)
-                <Stack.Screen 
-                  name="VerificationPending" 
-                  component={VerificationPendingScreen} 
+            // 🛑 2. CHECK: Is the restaurant APPROVED?
+            user.isVerified === true ? (
+              // ✅ YES: Show Main App
+              <>
+                <Stack.Screen name="Main" component={VendorTabs} />
+                <Stack.Screen
+                  name="AddMenuItem"
+                  component={AddMenuItemScreen}
                 />
-             )
+                <Stack.Screen
+                  name="SetupLocation"
+                  component={SetupLocationScreen}
+                />
+              </>
+            ) : (
+              // ❌ NO: Show Pending Screen (Gatekeeper)
+              <Stack.Screen
+                name="VerificationPending"
+                component={VerificationPendingScreen}
+              />
+            )
           ) : (
             // 📝 3. NO RESTAURANT YET: Show Setup Flow
             <>
@@ -152,16 +179,33 @@ function NavigationContent() {
         ) : (
           // 🔒 4. NOT LOGGED IN: Show Auth Flow
           <>
-            <Stack.Screen name="Splash" component={SplashScreen} />
-            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+            {/* Pass the isFirstLaunch flag to the Splash screen */}
+            <Stack.Screen
+              name="Splash"
+              component={SplashScreen}
+              initialParams={{ isFirstLaunch }}
+            />
+            {/* Only show Onboarding if it's the first launch */}
+            {isFirstLaunch && (
+              <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+            )}
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Signup" component={SignupScreen} />
             <Stack.Screen name="Terms" component={TermsScreen} />
             <Stack.Screen name="Privacy" component={PrivacyScreen} />
             <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
-            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-            <Stack.Screen name="VerifyResetOtp" component={VerifyResetOtpScreen} />
-            <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+            <Stack.Screen
+              name="ForgotPassword"
+              component={ForgotPasswordScreen}
+            />
+            <Stack.Screen
+              name="VerifyResetOtp"
+              component={VerifyResetOtpScreen}
+            />
+            <Stack.Screen
+              name="ResetPassword"
+              component={ResetPasswordScreen}
+            />
           </>
         )}
       </Stack.Navigator>
@@ -173,15 +217,15 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-          <SafeAreaProvider>
-            {/* Added flex: 1 to ensure GestureHandler takes full height */}
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <ThemeProvider>
-                <NavigationContent />
-                <Toaster />
-              </ThemeProvider>
-            </GestureHandlerRootView>
-          </SafeAreaProvider>
+        <SafeAreaProvider>
+          {/* Added flex: 1 to ensure GestureHandler takes full height */}
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <ThemeProvider>
+              <NavigationContent />
+              <Toaster />
+            </ThemeProvider>
+          </GestureHandlerRootView>
+        </SafeAreaProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
